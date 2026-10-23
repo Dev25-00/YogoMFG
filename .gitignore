@@ -1,0 +1,22 @@
+# Guide interne
+CLAUDE.md
+
+# Payload du mod (DLL NVIDIA + kernels NON MIT) : ne PAS publier
+mod/
+
+# Binaire tiers nvidiaProfileInspector : redirigé/téléchargé, pas réhébergé
+tools/
+
+# Build / runtime
+dist/
+build/
+__pycache__/
+*.pyc
+*.spec
+build*.log
+
+# Données utilisateur / générées
+config.json
+*.nip
+_covers/
+yogomfg_error.log
