@@ -61,7 +61,9 @@ requirements.txt  dépendances Python
 Exclus du dépôt par `.gitignore` :
 
 - `mod/` : payload du mod (DLL NVIDIA et kernels recompilés, non MIT).
-- `tools/` : nvidiaProfileInspector et `Reference.xml` (binaire tiers, non réhébergé).
+- `tools/npi/` : nvidiaProfileInspector et `Reference.xml` (binaire tiers, non réhébergé). À récupérer
+  sur la [release NPI](https://github.com/Orbmu2k/nvidiaProfileInspector/releases) et placer dans
+  `tools/npi/`. Le build les embarque si présents.
 - `config.json`, `*.nip`, `_covers/` : données utilisateur.
 - `CLAUDE.md` : guide interne du projet.
 
@@ -78,4 +80,4 @@ Exclus du dépôt par `.gitignore` :
 - Runtime `nvngx_dlssg.dll` / `nvngx_dlss.dll` : **NVIDIA**, non relicenciés.
 - Les kernels recompilés et le runtime NVIDIA **ne sont pas** couverts par la licence MIT du mod.
 
-Code de YogoMFG : *licence à choisir.*
+Code de YogoMFG : **MIT**, voir [LICENSE](LICENSE).
