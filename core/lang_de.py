@@ -7,7 +7,7 @@ TR = {
     "need_game": "Wähle zuerst ein Spiel und seine .exe.",
     "remove_ask": "Mod entfernen und Originaldateien (.yogobak) wiederherstellen?", "removing": "Mod wird entfernt…",
     "mfg_6x": "✓ Neues DLSS-G-Plugin: x6 ist möglich.",
-    "mfg_4x": "Altes DLSS-G-Plugin: das Spiel ist auf x4 begrenzt.",
+    "mfg_4x": "Altes DLSS-G-Plugin: das Spiel kann auf x4 begrenzt sein. Einmal spielen: YogoMFG misst das echte Maximum.",
     "mfg_noplugin": "DLSS-G-Plugin (sl.dlss_g.dll) nicht gefunden — das Spiel bestimmt den Multiplikator.",
     "force_mfg": "Plugin-Patch (Test)", "force_mfg_on": "Plugin des Spiels verändern. Riskant, nicht empfohlen.",
     "force_blocked": "🔒 Für dieses Spiel nicht verfügbar: Das DLSS-G-Plugin (%s) lässt sich nicht patchen. Erzwingen würde x1 (Frame Generation aus) oder Ruckeln ergeben. Nutze das Menü des Spiels (max. 4X).",

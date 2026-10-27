@@ -12,6 +12,7 @@ battre un éventuel cap réglé à la main (ex. 55) dans l'un ou l'autre.
 V-Sync / Power management non écrits (pas d'ID fiable) -> conseillés.
 """
 import os, re, glob, json, ctypes, subprocess
+from core import drsread
 from xml.sax.saxutils import escape as _esc, unescape as _unesc
 
 ID_FPS_LIMIT = 0x10835002
@@ -163,6 +164,9 @@ def _global_name(profiles):
 def _game_name(profiles, exe_name):
     if not exe_name:
         return None
+    real = drsread.profile_for(exe_name)       # le profil que le pilote applique VRAIMENT (même s'il n'est pas « modifié »)
+    if real:
+        return real
     e = exe_name.lower()
     for n, exes in profiles:
         if e in exes:
@@ -222,6 +226,10 @@ def apply(npi_exe, out_dir, fps_cap, vrr_on, exe_name=None):
         subprocess.run([npi_exe, "-silentImport", nip], timeout=30, cwd=npi_dir, creationflags=_NO_WINDOW)
     except Exception as e:
         return False, f"Import échoué: {e}\n" + MANUAL
+    after = _export_text(npi_exe)
+    for n, _ in targets:
+        if after and _profile_dword(after, n, ID_FPS_LIMIT) != _fps_value(fps_cap):
+            return False, f"Cap FPS NON appliqué dans « {n} » (relecture différente) : rien n'est garanti pour ce jeu."
     names = ", ".join(n for n, _ in targets)
     extra = " + VRR/G-Sync (plein écran & fenêtré)" if vrr_on else ""
     bk = f"\nBackup profils: {backup}" if backup else ""
@@ -367,7 +375,8 @@ def unlock_mfg(npi_exe, out_dir, generated=5, exe_name=None):
         targets = []
         if exe_name:
             e = exe_name.lower()
-            targets = [(n, exe_name) for n, exes in profiles if e in exes]
+            real = drsread.profile_for(exe_name)
+            targets = [(real, exe_name)] if real else [(n, exe_name) for n, exes in profiles if e in exes]
         if not targets and exe_name:
             # Jamais de repli sur le profil GLOBAL quand on cible un jeu : le x6 serait imposé à tous les autres jeux.
             return False, (f"Profil NVIDIA introuvable pour {exe_name} : active d'abord « Panneau NVIDIA » "

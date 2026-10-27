@@ -1,4 +1,4 @@
-# YogoMFG 0.6.1 beta — Frame Generation jusqu'à x6 sur RTX 20 / 30
+# YogoMFG 0.6.2 beta — Frame Generation jusqu'à x6 sur RTX 20 / 30
 
 > ⛔ **Jeux solo / hors ligne uniquement.** N'utilise jamais YogoMFG sur un jeu en ligne ou avec anti-cheat :
 > risque de bannissement définitif. Détails (FR, EN, ES, DE, PT, IT, 中文) dans [ANTICHEAT.md](ANTICHEAT.md).
@@ -16,7 +16,7 @@ Windows 10/11 64 bits · carte NVIDIA RTX 20 ou 30 · pilote NVIDIA récent · d
 Frame Generation (DLSS-G / Streamline).
 
 ## Installation et utilisation
-1. Lance `YogoMFG-Setup-0.6.1-beta.exe` (ou le `YogoMFG.exe` portable) et accepte l'avertissement anti-cheat.
+1. Lance `YogoMFG-Setup-0.6.2-beta.exe` (ou le `YogoMFG.exe` portable) et accepte l'avertissement anti-cheat.
 2. Clique la **jaquette** de ton jeu. L'appli dit si le jeu supporte la Frame Generation et quel plafond il a.
 3. **Options & Appliquer** → choisis le multiplicateur → **Optimiser**. (« Avancé » : réglages fins, tout est expliqué.)
 4. Lance le jeu avec le bouton **Launch** de YogoMFG. Pour changer de multiplicateur ensuite : la ligne
@@ -54,7 +54,7 @@ affilié à NVIDIA, AMD ou Intel. Utilisation à tes risques, sans garantie.
 
 ---
 
-# YogoMFG 0.6.1 beta — Frame Generation up to x6 on RTX 20 / 30 (English)
+# YogoMFG 0.6.2 beta — Frame Generation up to x6 on RTX 20 / 30 (English)
 
 > ⛔ **Single-player / offline games only.** Never use YogoMFG in online games or games with anti-cheat: permanent-ban
 > risk. See [ANTICHEAT.md](ANTICHEAT.md).

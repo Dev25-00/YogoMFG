@@ -93,6 +93,21 @@ and it reads the logs and gives a verdict. *Export report* builds the `.zip` to 
 
 ![Languages](docs/img/06-languages.png)
 
+## Which multiplier will my game really get?
+
+The ceiling depends on the game, not on your card. Measured by us, from real session logs (RTX 3070):
+
+| Game | Plugin in game folder | Result |
+|---|---|---|
+| Crimson Desert | 2.11.1 | **x6** |
+| God of War Ragnarök | 2.4.15 (the game calls Frame Generation directly) | **x6** — the in-game menu only offers x2; the NVIDIA profile override forces more |
+| Resident Evil Requiem | 2.8.0 | **x4 maximum** — the game ignores the driver's x6 request |
+
+Other games are not tested yet. The plugin version alone does **not** tell the ceiling (see God of War vs. Resident Evil).
+So YogoMFG does not guess: pick your multiplier, play a few minutes, and YogoMFG **measures** what the game really
+delivered. It then shows "last measured: x4" on the game's card and greys out what that game cannot do.
+Please send us your results (*Analyze → Export report*) to grow this list.
+
 ## Good to know (beta)
 
 - **x5 / x6** need a game with a recent DLSS-G plugin (≥ 2.11.1). Otherwise the game caps at x4 or less.

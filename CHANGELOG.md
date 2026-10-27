@@ -1,5 +1,14 @@
 # Changelog — YogoMFG
 
+## 0.6.2 beta
+
+- **Correctif majeur** : pour un jeu dont le profil NVIDIA est celui d'origine (ex. God of War Ragnarök), YogoMFG créait un
+  profil « GoWR » que le pilote ignorait : cap FPS, G-Sync et multiplicateur n'étaient pas appliqués. L'appli interroge
+  maintenant le pilote pour trouver le vrai profil du jeu, et relit après écriture avant de dire « appliqué ».
+- Plus de grisage deviné d'après la version du plugin (faux : God of War 2.4.15 fait x6). L'appli **mesure** le
+  multiplicateur obtenu en session, l'affiche (« dernière mesure : x4 ») et ne grise que ce qui est prouvé impossible.
+- README : tableau des jeux testés.
+
 ## 0.6.1 beta
 
 - Jeux dont le plugin DLSS-G plafonne à x4 (ex. Resident Evil Requiem) : **x5 et x6 sont grisés**, avec un message clair ;

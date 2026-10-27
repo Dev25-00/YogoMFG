@@ -214,6 +214,12 @@ def _frame_stats(exe_path):
             "locked": len(fps) > 20 and statistics.pstdev(fps) < 0.3}
 
 
+def measured_mult(exe_path):
+    """Multiplicateur réellement obtenu à la dernière session (2…6), ou None si la Frame Generation n'a pas tourné."""
+    st = _frame_stats(exe_path)
+    return int(round(st["mult"])) if st and st["mult"] > 1 else None
+
+
 def real_fps(exe_path):
     """FPS réels médians mesurés (sans génération d'images), ou None."""
     st = _frame_stats(exe_path)

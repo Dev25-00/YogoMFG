@@ -31,7 +31,7 @@ NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 FPS_CHOICES = ["30", "60", "90", "120", "144", "165", "180", "240"]
 MULT = {"2X": 2, "3X": 3, "4X": 4, "5X": 5, "6X": 6}   # -> MaxGeneratedFrames 1/2/3/4/5 (plafond ; le jeu doit demander le multi)
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.6.1 beta"
+VERSION = "0.6.2 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -313,7 +313,7 @@ TIPS["en"].update({
 
 
 TR["fr"].update({
-    "mfg_6x": "✓ Plugin DLSS-G récent : le x6 est possible.", "mfg_4x": "Plugin DLSS-G ancien : le jeu plafonne à x4.",
+    "mfg_6x": "✓ Plugin DLSS-G récent : le x6 est possible.", "mfg_4x": "Plugin DLSS-G ancien : le jeu peut plafonner à x4. Joue une fois : YogoMFG mesure le vrai maximum.",
     "support": "Me soutenir", "support_tip": "Offre-moi un café : ça aide à faire vivre et améliorer YogoMFG. Merci !",
     "report_btn": "Exporter le rapport", "report_ok": "✓ Rapport enregistré : %s",
     "report_hint": "Envoie ce fichier .zip si tu as un problème : il contient tes réglages et tes logs (sans ton nom d'utilisateur).",
@@ -323,7 +323,7 @@ TR["fr"].update({
     "ref_q": "Image de référence", "ref_q_on": "Image la plus fidèle (un peu plus lent, environ 3 %).",
 })
 TR["en"].update({
-    "mfg_6x": "✓ Recent DLSS-G plugin: x6 is possible.", "mfg_4x": "Old DLSS-G plugin: the game caps at x4.",
+    "mfg_6x": "✓ Recent DLSS-G plugin: x6 is possible.", "mfg_4x": "Old DLSS-G plugin: the game may cap at x4. Play once: YogoMFG measures the real maximum.",
     "support": "Support me", "support_tip": "Buy me a coffee: it helps keep YogoMFG alive and improving. Thank you!",
     "report_btn": "Export report", "report_ok": "✓ Report saved: %s",
     "report_hint": "Send this .zip if you have a problem: it holds your settings and logs (without your user name).",
@@ -366,7 +366,8 @@ TIPS["en"].update({
 
 
 TR["en"].update({
-    "mult_capped": "🔒 This game's Frame Generation plugin stops at x%d: higher multipliers are greyed out.",
+    "mult_capped": "🔒 Measured in your last session: this game stops at x%d, so higher multipliers are greyed out.",
+    "last_measured": " · last measured: x%d",
     "change_exe": "Change .exe", "logs_found": "📊 Logs found — open Analyze for the suggestion.",
     "did_fg": "Frame Generation ON", "did_reflex": "Reflex ON", "did_rt": "Ray Tracing", "did_pt": "Path Tracing",
     "did_vsync": "V-Sync in-game OFF",
@@ -378,7 +379,8 @@ TR["en"].update({
                  "and beeradmoore (DLSS Swapper's DLL list). Built with Claude Code (Anthropic), through the Visual Studio Code extension.",
 })
 TR["fr"].update({
-    "mult_capped": "🔒 Le plugin Frame Generation de ce jeu s'arrête à x%d : les multiplicateurs au-dessus sont grisés.",
+    "mult_capped": "🔒 Mesuré à ta dernière session : ce jeu s'arrête à x%d, les multiplicateurs au-dessus sont grisés.",
+    "last_measured": " · dernière mesure : x%d",
     "change_exe": "Changer le .exe", "logs_found": "📊 Logs trouvés — ouvre Analyser pour la proposition.",
     "about_btn": "À propos / Crédits", "about_title": "À propos de YogoMFG",
     "about_text": "YogoMFG est un projet sans but lucratif, fait pour s'entraider et améliorer le quotidien des anciennes cartes "
@@ -482,6 +484,7 @@ class App(ctk.CTk):
         self._applied = False
         self._busy = False
         self._mfg_cap = 4
+        self._mfg_ver = None
         self._force_ok = (False, None)
         self._anticheat = []
         self._clash = []
@@ -1059,7 +1062,8 @@ class App(ctk.CTk):
 
     def _mult_max(self):
         """Plafond réel du jeu : celui de son plugin DLSS-G, sauf plugin patchable (forçage possible)."""
-        return 6 if self._force_ok[0] else max(2, min(6, self._mfg_cap))
+        appid = (self.game or {}).get("appid")       # plafond PROUVÉ par une session mesurée ; la version du plugin ne prouve rien
+        return max(2, min(6, self.cfg.get("proven_cap", {}).get(appid, 6)))
 
     def _lock_mult(self, seg):
         """Grise les multiplicateurs que le jeu ne peut pas afficher. Les boutons internes de CTk : sans l'API publique."""
@@ -1069,6 +1073,25 @@ class App(ctk.CTk):
                 btn.configure(state="disabled" if MULT[val] > top else "normal")
             except Exception:
                 pass
+
+    def _learn_cap(self, g, got):
+        """Retient ce que le jeu a réellement donné. Demandé 6, obtenu 4 -> plafond prouvé x4 ; sinon aucun plafond connu."""
+        asked = self.cfg.get("mult_by_game", {}).get(g["appid"])
+        caps = self.cfg.setdefault("proven_cap", {})
+        old = caps.get(g["appid"])
+        if got and asked and got < asked:
+            caps[g["appid"]] = got
+        elif got and old and got > old:          # le jeu a fait mieux que le plafond retenu (mise à jour du jeu) : on l'oublie
+            caps.pop(g["appid"], None)
+        if caps.get(g["appid"]) != old:
+            config.save(self.cfg)
+
+    def _apply_mult_limits(self):
+        top = self._mult_max()
+        for var in (self.mult, self.quick_var):
+            if MULT[var.get()] > top:
+                var.set(f"{top}X")
+        self._lock_mult(self.seg_quick)
 
     def _quick_mult(self, val):
         """Change le multiplicateur imposé du jeu sans réinstaller : une seule écriture dans son profil NVIDIA."""
@@ -1102,14 +1125,11 @@ class App(ctk.CTk):
         self._anticheat = info["anticheat"]
         self._clash = clash
         self._mfg_cap = cap
+        self._mfg_ver = ver
         self._force_ok = info["force_ok"]
         if not self._force_ok[0]:
             self.force_mfg.set(False)   # jamais de force résiduelle d'un jeu précédent sur un plugin non patchable
-        top = self._mult_max()
-        for var in (self.mult, self.quick_var):
-            if MULT[var.get()] > top:
-                var.set(f"{top}X")
-        self._lock_mult(self.seg_quick)
+        self._apply_mult_limits()
         base = self.L("fg_yes") if sup == "yes" else self.L("fg_no")
         if sup == "yes":
             base += "\n" + self.L(note) + (f"  (plugin {ver})" if ver else "")
@@ -1146,9 +1166,14 @@ class App(ctk.CTk):
         self.lbl_logs.configure(text="")
         exe0 = self.exe.get()
         if exe0:
-            self._async(lambda: loganalyze.read(exe0),
-                        lambda r, e: self.game is g and r and r.get("found") and
-                        self.lbl_logs.configure(text=self.L("logs_found")))
+            def seen(r, e):
+                if self.game is not g or not (r and r[0] and r[0].get("found")):
+                    return
+                got = r[1]
+                self._learn_cap(g, got)
+                self.lbl_logs.configure(text=self.L("logs_found") + (self.L("last_measured") % got if got else ""))
+                self._apply_mult_limits()
+            self._async(lambda: (loganalyze.read(exe0), loganalyze.measured_mult(exe0)), seen)
         if self._up_game != g["dir"]:
             self._up_game, self._up_last = g["dir"], None
             self._up_tok += 1                        # les opérations de l'ancien jeu ne touchent plus à l'état
@@ -1341,13 +1366,19 @@ class App(ctk.CTk):
         if not self.cover.winfo_exists():
             return
         self._cover_img = None                 # garder une réf -> éviter que Tk libère l'image (bug pyimage)
+        dest = os.path.join(DATA, "_covers", f"{appid}.jpg")
+        try:                                   # déjà en cache disque (la grille l'a chargée) : affichage immédiat, sans « Chargement… »
+            if str(appid).isdigit() and os.path.getsize(dest) > 0:
+                self._cover_img = ctk.CTkImage(Image.open(dest).convert("RGB"), size=(112, 158))
+                return self.cover.configure(image=self._cover_img, text="")
+        except Exception:
+            pass
         try:
             self.cover.configure(image=None, text=self.L("loading"))
         except Exception:
             pass
         if not str(appid).isdigit():
             return self.cover.configure(text="")
-        dest = os.path.join(DATA, "_covers", f"{appid}.jpg")
         g = self.game
         def done(p, e):
             if not self.cover.winfo_exists() or self.game is not g:

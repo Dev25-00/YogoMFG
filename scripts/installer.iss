@@ -1,6 +1,6 @@
 ; Installeur YogoMFG. Compile avec : ISCC.exe scripts\installer.iss  (apres scripts\build.bat)
 #define AppName "YogoMFG"
-#define AppVer "0.6.1-beta"
+#define AppVer "0.6.2-beta"
 
 [Setup]
 AppId={{6E0B2C0A-5C1D-4B7B-9A55-59F0C0A0F0F1}

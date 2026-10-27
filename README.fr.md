@@ -80,6 +80,21 @@ Tes réglages sont dans `%LOCALAPPDATA%\YogoMFG`.
 5. **Langue** : bouton globe en haut à droite.
    ![Langues](docs/img/06-languages.png)
 
+## Quel multiplicateur mon jeu aura-t-il vraiment ?
+
+Le plafond dépend du jeu, pas de ta carte. Mesuré par nous, sur de vrais logs de session (RTX 3070) :
+
+| Jeu | Plugin dans le dossier du jeu | Résultat |
+|---|---|---|
+| Crimson Desert | 2.11.1 | **x6** |
+| God of War Ragnarök | 2.4.15 (le jeu appelle la Frame Generation directement) | **x6** — le menu du jeu ne propose que x2 ; l'override du profil NVIDIA force plus |
+| Resident Evil Requiem | 2.8.0 | **x4 maximum** — le jeu ignore la demande x6 du pilote |
+
+Les autres jeux ne sont pas encore testés. La version du plugin seule **ne dit pas** le plafond (voir God of War et Resident Evil).
+YogoMFG ne devine donc pas : choisis ton multiplicateur, joue quelques minutes, et YogoMFG **mesure** ce que le jeu a vraiment
+donné. Il affiche alors « dernière mesure : x4 » sur la fiche du jeu et grise ce que ce jeu ne sait pas faire.
+Envoie-nous tes résultats (*Analyser → Exporter le rapport*) pour allonger cette liste.
+
 ## À savoir (bêta)
 
 - **x5 / x6** demandent un jeu avec un plugin DLSS-G récent (≥ 2.11.1). Sinon le jeu plafonne à x4 ou moins.

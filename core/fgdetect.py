@@ -48,6 +48,18 @@ def _file_version(path):
         return None
 
 
+def _cap_for(v):
+    """(plafond, version_str, note) d'après la version du plugin Streamline trouvé dans le dossier du jeu.
+
+    Indicatif seulement : mesuré sur logs, RE Requiem (plugin 2.8.0) reste à x4 même avec le multiplicateur imposé
+    par le pilote, alors que God of War Ragnarök (sl.dlss_g 2.4.15 dans le dossier, mais appels NGX directs)
+    passe à x6. La version ne prouve donc rien : seul un log de session tranche.
+    """
+    t = (v[0], v[1], v[2])
+    vs = ".".join(str(x) for x in t)
+    return (6, vs, "mfg_6x") if t >= (2, 11, 1) else (4, vs, "mfg_4x")
+
+
 def mfg_capability(game_dir):
     """Capacité MFG du jeu selon la version du plugin DLSS-G (sl.dlss_g.dll).
 
@@ -63,9 +75,7 @@ def mfg_capability(game_dir):
     if not v:
         return (4, None, "mfg_noplugin")
     vs = ".".join(str(x) for x in v[:3])
-    if (v[0], v[1], v[2]) >= (2, 11, 1):
-        return (6, vs, "mfg_6x")
-    return (4, vs, "mfg_4x")
+    return _cap_for(v)
 
 
 # Plugins que le mod identifie exactement (doc : Wukong 2.7.4, Cyberpunk 2.7.1) + natifs >= 2.11.1.
@@ -153,7 +163,7 @@ def scan(game_dir):
     else:
         vs = ".".join(str(x) for x in v[:3])
         native = (v[0], v[1], v[2]) >= (2, 11, 1)
-        cap, note = (6, "mfg_6x") if native else (4, "mfg_4x")
+        cap, _, note = _cap_for(v)
         fok = native or (v[0], v[1], v[2]) in _FORCEABLE
     return {"sup": sup, "cap": cap, "ver": vs, "note": note, "force_ok": (fok, vs), "clash": clash,
             "anticheat": ac}

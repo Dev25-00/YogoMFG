@@ -7,7 +7,7 @@ TR = {
     "need_game": "Elige primero un juego y su .exe.",
     "remove_ask": "¿Quitar el mod y restaurar los archivos originales (.yogobak)?", "removing": "Quitando el mod…",
     "mfg_6x": "✓ Plugin DLSS-G reciente: x6 es posible.",
-    "mfg_4x": "Plugin DLSS-G antiguo: el juego se limita a x4.",
+    "mfg_4x": "Plugin DLSS-G antiguo: el juego puede limitarse a x4. Juega una vez: YogoMFG mide el máximo real.",
     "mfg_noplugin": "Plugin DLSS-G (sl.dlss_g.dll) no encontrado — el juego decide el multiplicador.",
     "force_mfg": "Parche del plugin (prueba)", "force_mfg_on": "Modificar el plugin del juego. Arriesgado, no recomendado.",
     "force_blocked": "🔒 No disponible para este juego: su plugin DLSS-G (%s) no se puede parchear. Forzarlo daría x1 (generación desactivada) o tirones. Usa el menú del juego (máx. 4X).",

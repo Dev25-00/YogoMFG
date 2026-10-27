@@ -7,7 +7,7 @@ TR = {
     "need_game": "请先选择游戏和 .exe 文件。",
     "remove_ask": "移除模组并恢复原始文件（.yogobak）？", "removing": "正在移除模组…",
     "mfg_6x": "✓ 游戏的 DLSS-G 插件较新：可使用 x6。",
-    "mfg_4x": "游戏的 DLSS-G 插件较旧：最高 x4。",
+    "mfg_4x": "游戏的 DLSS-G 插件较旧：可能最高只到 x4。玩一次后 YogoMFG 会测出真实上限。",
     "mfg_noplugin": "未找到 DLSS-G 插件（sl.dlss_g.dll）— 倍数由游戏决定。",
     "force_mfg": "插件补丁（测试）", "force_mfg_on": "修改游戏的插件。有风险，不推荐。",
     "force_blocked": "🔒 此游戏不可用：其 DLSS-G 插件（%s）无法被修补。强行修改会导致 x1（帧生成关闭）或卡顿。请使用游戏自带的帧生成菜单（最高 4X）。",
