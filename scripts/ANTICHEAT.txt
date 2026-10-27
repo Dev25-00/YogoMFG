@@ -1,0 +1,44 @@
+﻿Online games & anti-cheat — READ BEFORE USING YogoMFG
+
+EN — YogoMFG injects DLLs (a proxy version.dll/dxgi.dll… plus the dlssg_sm86 folder) into a game's rendering pipeline. Anti-cheat systems (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert…) can detect this injection and permanently ban your account, with no appeal.
+  * Never use YogoMFG in an online, multiplayer or competitive game.
+  * Use it only in single-player / offline games.
+  * Use at your own risk: no warranty; the authors are not liable for any ban, loss or damage.
+  * Not affiliated with NVIDIA, AMD or Intel.
+YogoMFG warns you when it detects a known anti-cheat in a game folder, and asks for confirmation before applying.
+
+FR — YogoMFG injecte des DLL (un proxy version.dll/dxgi.dll… et le dossier dlssg_sm86) dans le rendu d'un jeu. Les anti-cheats (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert…) peuvent détecter cette injection et bannir définitivement ton compte, sans recours.
+  * Jamais sur un jeu en ligne, multijoueur ou compétitif.
+  * Uniquement sur des jeux solo / hors ligne.
+  * À tes risques : aucune garantie ; les auteurs ne sont pas responsables d'un bannissement, d'une perte ou d'un dommage.
+  * Non affilié à NVIDIA, AMD ni Intel.
+
+ES — YogoMFG inyecta DLL (un proxy version.dll/dxgi.dll… y la carpeta dlssg_sm86) en el renderizado del juego. Los sistemas anti-trampas (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert…) pueden detectarlo y banear tu cuenta de forma permanente, sin apelación.
+  * Nunca lo uses en juegos online, multijugador o competitivos.
+  * Úsalo solo en juegos de un jugador / sin conexión.
+  * Bajo tu responsabilidad: sin garantía; los autores no se hacen responsables de baneos, pérdidas ni daños.
+  * Sin afiliación con NVIDIA, AMD ni Intel.
+
+DE — YogoMFG schleust DLLs (einen Proxy version.dll/dxgi.dll … und den Ordner dlssg_sm86) in die Render-Pipeline eines Spiels ein. Anti-Cheat-Systeme (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert …) können das erkennen und dein Konto dauerhaft und ohne Widerspruchsmöglichkeit sperren.
+  * Niemals in Online-, Mehrspieler- oder Wettbewerbsspielen verwenden.
+  * Nur in Einzelspieler-/Offline-Spielen nutzen.
+  * Nutzung auf eigenes Risiko: keine Gewährleistung; die Autoren haften nicht für Sperren, Verluste oder Schäden.
+  * Nicht mit NVIDIA, AMD oder Intel verbunden.
+
+PT-BR — O YogoMFG injeta DLLs (um proxy version.dll/dxgi.dll… e a pasta dlssg_sm86) na renderização do jogo. Sistemas anti-cheat (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert…) podem detectar isso e banir sua conta permanentemente, sem recurso.
+  * Nunca use em jogos online, multiplayer ou competitivos.
+  * Use apenas em jogos single-player / offline.
+  * Por sua conta e risco: sem garantia; os autores não respondem por banimentos, perdas ou danos.
+  * Sem afiliação com NVIDIA, AMD ou Intel.
+
+IT — YogoMFG inietta DLL (un proxy version.dll/dxgi.dll… e la cartella dlssg_sm86) nel rendering del gioco. I sistemi anti-cheat (EasyAntiCheat, BattlEye, Riot Vanguard, EA Javelin, XIGNCODE3, nProtect GameGuard, Anti-Cheat Expert…) possono rilevarlo e bannare il tuo account in modo permanente, senza appello.
+  * Mai in giochi online, multiplayer o competitivi.
+  * Solo in giochi single-player / offline.
+  * A tuo rischio: nessuna garanzia; gli autori non rispondono di ban, perdite o danni.
+  * Non affiliato a NVIDIA, AMD o Intel.
+
+中文 (简体) — YogoMFG 会向游戏渲染流程注入 DLL(代理文件 version.dll/dxgi.dll 等以及 dlssg_sm86 文件夹)。反作弊系统(EasyAntiCheat、BattlEye、Riot Vanguard、EA Javelin、XIGNCODE3、nProtect GameGuard、Anti-Cheat Expert 等)可能检测到该注入,并永久封禁您的账号且无法申诉。
+  * 切勿在在线、多人或竞技类游戏中使用。
+  * 仅限单机 / 离线游戏使用。
+  * 风险自负:不提供任何担保;作者不对封号、损失或损害承担责任。
+  * 与 NVIDIA、AMD、Intel 无任何关联。

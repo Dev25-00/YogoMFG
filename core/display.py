@@ -4,7 +4,7 @@ Changer le refresh écrit dans le registre d'affichage (CDS_UPDATEREGISTRY) : r�
 (on peut remettre l'ancienne valeur), mais c'est une modification système, d'où un test
 CDS_TEST avant application.
 """
-import ctypes
+import ctypes, subprocess
 from ctypes import wintypes
 
 user32 = ctypes.windll.user32
@@ -138,3 +138,81 @@ def set_refresh(device, hz):
     if r == DISP_CHANGE_SUCCESSFUL:
         return True, f"Refresh réglé sur {hz} Hz."
     return False, f"Échec du changement (code {r})."
+
+
+def _active_monitor_ids():
+    """Identifiants (« MODEL\\instance ») des écrans réellement branchés, via WMI ; None si indisponible."""
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorBasicDisplayParams | "
+             "Where-Object { $_.Active } | ForEach-Object { $_.InstanceName }"],
+            capture_output=True, text=True, timeout=20, creationflags=0x08000000)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    ids = set()
+    for line in out.stdout.splitlines():
+        parts = line.strip().upper().split("\\")            # DISPLAY\\MODEL\\instance_0
+        if len(parts) >= 3:
+            ids.add(parts[1] + "\\" + parts[2].rsplit("_", 1)[0])
+    return ids or None
+
+
+def vrr_ranges():
+    """[(min_hz, max_hz, nom)] lus dans l'EDID des écrans BRANCHÉS (descripteur « plage de fréquences » 0xFD).
+
+    Le registre garde l'EDID de tous les écrans déjà connectés : on ne retient que ceux que WMI dit actifs.
+    Un écran G-Sync / FreeSync annonce une plage large (ex. 48-180 Hz) ; un écran fixe une plage étroite.
+    """
+    import winreg
+    out = []
+    active = _active_monitor_ids()
+    try:
+        root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Enum\DISPLAY")
+    except OSError:
+        return out
+    with root:
+        i = 0
+        while True:
+            try:
+                model = winreg.EnumKey(root, i)
+            except OSError:
+                break
+            i += 1
+            try:
+                mk = winreg.OpenKey(root, model)
+            except OSError:
+                continue
+            with mk:
+                j = 0
+                while True:
+                    try:
+                        inst = winreg.EnumKey(mk, j)
+                    except OSError:
+                        break
+                    j += 1
+                    if active is not None and (model.upper() + "\\" + inst.upper()) not in active:
+                        continue                                  # écran débranché
+                    try:
+                        with winreg.OpenKey(mk, inst + "\\Device Parameters") as dp:
+                            edid = bytes(winreg.QueryValueEx(dp, "EDID")[0])
+                    except OSError:
+                        continue
+                    rng, name = None, ""
+                    for off in (54, 72, 90, 108):
+                        d = edid[off:off + 18]
+                        if len(d) < 18 or d[0:3] != b"\0\0\0":
+                            continue
+                        if d[3] == 0xFD:
+                            rng = (d[5] + (255 if d[4] & 1 else 0), d[6] + (255 if d[4] & 2 else 0))
+                        elif d[3] == 0xFC:
+                            name = d[5:18].decode("ascii", "ignore").strip(chr(0) + chr(10) + " ")
+                    if rng and (rng[0], rng[1], name) not in out:
+                        out.append((rng[0], rng[1], name))
+    return out
+
+
+def vrr_for(refresh_hz):
+    """(min, max, nom) de l'écran dont la plage couvre `refresh_hz` et qui est variable (>= 20 Hz de large), ou None."""
+    cands = [r for r in vrr_ranges() if r[1] >= (refresh_hz or 0) and r[1] - r[0] >= 20 and r[1] >= 60]
+    return max(cands, key=lambda r: r[1]) if cands else None   # plusieurs écrans : on retient le plus rapide (l'écran de jeu)

@@ -5,7 +5,7 @@ On NE télécharge PAS en silence (ToS + fragilité des sources). On :
   - ouvre la page de téléchargement officielle (TechPowerUp),
   - remplace une DLL par un fichier fourni par l'utilisateur (avec backup .yogobak).
 """
-import os, shutil, subprocess
+import os, re, shutil, subprocess
 
 # nom de fichier (minuscule) -> (marque, rôle)
 KNOWN = {
@@ -44,13 +44,59 @@ def _get(url, timeout=20):
     return urllib.request.urlopen(req, timeout=timeout).read()
 
 
+def _cache_dir():
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    d = os.path.join(base, "YogoMFG", "_cache")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+_FAIL_TS = 0.0   # dernier échec réseau : évite d'attendre le timeout à chaque changement de jeu hors ligne
+
+
+def _valid_manifest(d):
+    return isinstance(d, dict) and any(k in d for k in MANIFEST_KEY.values())
+
+
+def _manifest_json(url, ttl=6 * 3600):
+    """Manifeste en cache disque (6 h) : démarrage instantané ; repli sur le cache périmé si hors ligne."""
+    global _FAIL_TS
+    import json, time
+    path = os.path.join(_cache_dir(), "manifest.json")
+
+    def disk():
+        try:
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            return d if _valid_manifest(d) else {}
+        except (OSError, ValueError):
+            return {}
+
+    try:
+        if time.time() - os.path.getmtime(path) < ttl and disk():
+            return disk()
+    except OSError:
+        pass
+    if time.time() - _FAIL_TS < 300:      # hors ligne récemment : cache périmé sans retenter
+        return disk()
+    try:
+        raw = _get(url, timeout=8).decode("utf-8")
+        d = json.loads(raw)
+        if not _valid_manifest(d):
+            raise ValueError("manifeste inattendu")
+        tmp = path + ".part"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(raw)
+        os.replace(tmp, path)
+        return d
+    except Exception:
+        _FAIL_TS = time.time()
+        return disk()
+
+
 def latest(manifest_url=MANIFEST_URL):
     """Retourne {dllname: {version, url, md5}} = dernière version par DLL. {} si injoignable."""
-    import json
-    try:
-        d = json.loads(_get(manifest_url).decode("utf-8"))
-    except Exception:
-        return {}
+    d = _manifest_json(manifest_url)
     out = {}
     for dll, key in MANIFEST_KEY.items():
         lst = d.get(key) or []
@@ -71,14 +117,27 @@ def install_latest(dll_path, manifest=None, manifest_url=MANIFEST_URL):
     if not entry or not entry.get("url"):
         return False, f"Pas de version en ligne pour {name}."
     try:
-        zbytes = _get(entry["url"], timeout=60)
-        zf = zipfile.ZipFile(io.BytesIO(zbytes))
-        member = next((m for m in zf.namelist() if m.lower().endswith(name)), None)
-        if not member:
-            return False, "DLL absente du ZIP téléchargé."
-        data = zf.read(member)
-        if entry.get("md5") and hashlib.md5(data).hexdigest().lower() != entry["md5"]:
-            return False, "Intégrité (md5) invalide, installation annulée."
+        # cache disque par version : une DLL déjà téléchargée et vérifiée s'installe instantanément
+        safe_ver = re.sub(r"[^\w.\-]", "_", str(entry.get("version") or "x"))   # version vient du réseau
+        cached = os.path.join(_cache_dir(), f"{safe_ver}-{name}")
+        data = None
+        if entry.get("md5") and os.path.isfile(cached):     # sans md5 on ne fait PAS confiance au cache
+            with open(cached, "rb") as f:
+                data = f.read()
+            if hashlib.md5(data).hexdigest().lower() != entry["md5"]:
+                data = None
+        if data is None:
+            zf = zipfile.ZipFile(io.BytesIO(_get(entry["url"], timeout=60)))
+            member = next((m for m in zf.namelist() if m.lower().endswith(name)), None)
+            if not member:
+                return False, "DLL absente du ZIP téléchargé."
+            data = zf.read(member)
+            if entry.get("md5") and hashlib.md5(data).hexdigest().lower() != entry["md5"]:
+                return False, "Intégrité (md5) invalide, installation annulée."
+            if entry.get("md5"):
+                with open(cached + ".part", "wb") as f:       # écriture atomique : jamais de DLL tronquée en cache
+                    f.write(data)
+                os.replace(cached + ".part", cached)
         tmp = os.path.join(tempfile.gettempdir(), os.path.basename(dll_path))
         with open(tmp, "wb") as f:
             f.write(data)

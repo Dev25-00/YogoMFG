@@ -15,7 +15,7 @@ def advise(fps_target, vram_mb=0, series="30", dlss_quality=""):
     else:
         t.append("DLSS : Performance / Ultra Performance + baisser le path tracing pour 180+ FPS.")
     # Le Frame Generation a besoin d'un bon frame-rate de base, sinon artefacts.
-    t.append("Frame Generation x4 part d'un frame-rate de base : vise ≥ 40-50 FPS réels "
+    t.append("Frame Generation (jusqu'à x6) part d'un frame-rate de base : vise ≥ 40-50 FPS réels "
              "avant génération, sinon baisse RT/PT ou la résolution de rendu.")
     t.append("Active Reflex (On+Boost) dans le jeu pour compenser la latence du FG.")
     t.append("V-Sync in-game : OFF (la synchro est gérée côté pilote).")

@@ -1,7 +1,8 @@
 @echo off
-rem Construit dist\YogoMFG\YogoMFG.exe (onedir). Inclut mod\, assets\ et tools\npi\.
+rem Construit dist\YogoMFG.exe (onefile portable). NPI + mod\ + assets\ embarques dedans.
+rem Donnees (config.json, .nip, covers) ecrites dans %LOCALAPPDATA%\YogoMFG, rien a cote du .exe.
 cd /d "%~dp0.."
-python -m PyInstaller --noconfirm --windowed --name YogoMFG ^
+python -m PyInstaller --noconfirm --onefile --windowed --uac-admin --name YogoMFG ^
   --icon assets\yogo.ico ^
   --add-data "mod;mod" ^
   --add-data "assets;assets" ^
@@ -9,4 +10,4 @@ python -m PyInstaller --noconfirm --windowed --name YogoMFG ^
   --collect-all customtkinter ^
   yogomfg.py
 echo.
-echo Build fini: dist\YogoMFG\YogoMFG.exe
+echo Build fini: dist\YogoMFG.exe
