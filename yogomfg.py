@@ -31,7 +31,7 @@ NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 FPS_CHOICES = ["30", "60", "90", "120", "144", "165", "180", "240"]
 MULT = {"2X": 2, "3X": 3, "4X": 4, "5X": 5, "6X": 6}   # -> MaxGeneratedFrames 1/2/3/4/5 (plafond ; le jeu doit demander le multi)
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.6.0 beta"
+VERSION = "0.6.1 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -366,6 +366,7 @@ TIPS["en"].update({
 
 
 TR["en"].update({
+    "mult_capped": "🔒 This game's Frame Generation plugin stops at x%d: higher multipliers are greyed out.",
     "change_exe": "Change .exe", "logs_found": "📊 Logs found — open Analyze for the suggestion.",
     "did_fg": "Frame Generation ON", "did_reflex": "Reflex ON", "did_rt": "Ray Tracing", "did_pt": "Path Tracing",
     "did_vsync": "V-Sync in-game OFF",
@@ -377,6 +378,7 @@ TR["en"].update({
                  "and beeradmoore (DLSS Swapper's DLL list). Built with Claude Code (Anthropic), through the Visual Studio Code extension.",
 })
 TR["fr"].update({
+    "mult_capped": "🔒 Le plugin Frame Generation de ce jeu s'arrête à x%d : les multiplicateurs au-dessus sont grisés.",
     "change_exe": "Changer le .exe", "logs_found": "📊 Logs trouvés — ouvre Analyser pour la proposition.",
     "about_btn": "À propos / Crédits", "about_title": "À propos de YogoMFG",
     "about_text": "YogoMFG est un projet sans but lucratif, fait pour s'entraider et améliorer le quotidien des anciennes cartes "
@@ -1055,6 +1057,19 @@ class App(ctk.CTk):
                                   fg_color="#5a2020" if on else SURF2)
         self.seg_quick.configure(state="normal" if on else "disabled")
 
+    def _mult_max(self):
+        """Plafond réel du jeu : celui de son plugin DLSS-G, sauf plugin patchable (forçage possible)."""
+        return 6 if self._force_ok[0] else max(2, min(6, self._mfg_cap))
+
+    def _lock_mult(self, seg):
+        """Grise les multiplicateurs que le jeu ne peut pas afficher. Les boutons internes de CTk : sans l'API publique."""
+        top = self._mult_max()
+        for val, btn in getattr(seg, "_buttons_dict", {}).items():
+            try:
+                btn.configure(state="disabled" if MULT[val] > top else "normal")
+            except Exception:
+                pass
+
     def _quick_mult(self, val):
         """Change le multiplicateur imposé du jeu sans réinstaller : une seule écriture dans son profil NVIDIA."""
         if self._busy or not (self.game and self.exe.get()):
@@ -1090,6 +1105,11 @@ class App(ctk.CTk):
         self._force_ok = info["force_ok"]
         if not self._force_ok[0]:
             self.force_mfg.set(False)   # jamais de force résiduelle d'un jeu précédent sur un plugin non patchable
+        top = self._mult_max()
+        for var in (self.mult, self.quick_var):
+            if MULT[var.get()] > top:
+                var.set(f"{top}X")
+        self._lock_mult(self.seg_quick)
         base = self.L("fg_yes") if sup == "yes" else self.L("fg_no")
         if sup == "yes":
             base += "\n" + self.L(note) + (f"  (plugin {ver})" if ver else "")
@@ -1422,7 +1442,7 @@ class App(ctk.CTk):
         hz = self.refresh or 144
         real = loganalyze.real_fps(self.exe.get()) if self.exe.get() else None
         m = max(2, min(6, round((hz - 3) / real))) if real else (6 if self._mfg_cap >= 6 else 4)
-        return m, hz, real
+        return min(m, self._mult_max()), hz, real
 
     def _build_simple(self, parent):
         """Écran de base : un seul choix (le multiplicateur). Tout le reste est décidé automatiquement."""
@@ -1432,10 +1452,14 @@ class App(ctk.CTk):
         def upd(*_):
             if helptxt.winfo_exists():
                 helptxt.configure(text=self.L(f"mult_help_{MULT[self.mult.get()]}"))
-        ctk.CTkSegmentedButton(parent, values=list(MULT), variable=self.mult, font=FONT_B, height=56,
-                               selected_color="#3f7a1a", selected_hover_color="#4f8a1e", unselected_color=EDGE,
-                               unselected_hover_color=SURF, text_color=TXT,
-                               command=upd).pack(fill="x", padx=18)
+        seg = ctk.CTkSegmentedButton(parent, values=list(MULT), variable=self.mult, font=FONT_B, height=56,
+                                     selected_color="#3f7a1a", selected_hover_color="#4f8a1e", unselected_color=EDGE,
+                                     unselected_hover_color=SURF, text_color=TXT, command=upd)
+        seg.pack(fill="x", padx=18)
+        self._lock_mult(seg)
+        if self._mult_max() < 6:
+            ctk.CTkLabel(parent, text=self.L("mult_capped") % self._mult_max(), font=FONT, text_color="#f0b63a",
+                         wraplength=620, justify="left").pack(anchor="w", padx=18, pady=(8, 0))
         helptxt.pack(anchor="w", padx=18, pady=(10, 4))
         reco = (self.L("reco_mult_real") % (m, round(real, 1), hz)) if real else (self.L("reco_mult_none") % hz).replace("x4", f"x{m}", 1)
         ctk.CTkLabel(parent, text=reco, font=FONT, text_color=GREEN, wraplength=620,
@@ -1450,7 +1474,7 @@ class App(ctk.CTk):
             return messagebox.showwarning("YogoMFG", self.L("need_game"))
         cur = installer.status(self.exe.get())
         if cur["mult"] in (2, 3, 4, 5, 6):
-            self.mult.set(f"{cur['mult']}X")             # reprend ce qui est déjà installé pour ce jeu
+            self.mult.set(f"{min(cur['mult'], self._mult_max())}X")   # reprend ce qui est déjà installé pour ce jeu
         elif not loganalyze.real_fps(self.exe.get()):
             self.mult.set(f"{self._reco_mult()[0]}X")    # première fois : x6 si le plugin du jeu le permet
         body, bar = self._overlay(self.L("simple_title"))

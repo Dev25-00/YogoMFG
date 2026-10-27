@@ -1,5 +1,11 @@
 # Changelog — YogoMFG
 
+## 0.6.1 beta
+
+- Jeux dont le plugin DLSS-G plafonne à x4 (ex. Resident Evil Requiem) : **x5 et x6 sont grisés**, avec un message clair ;
+  le multiplicateur est ramené au maximum possible au lieu de rester sur un choix sans effet.
+- La suggestion « conseillé » ne dépasse plus le plafond du jeu.
+
 ## 0.6.0 beta
 
 - Première version de test publique : x2 à x6 sans réinstaller, cap et G-Sync dans le profil du jeu, détection
