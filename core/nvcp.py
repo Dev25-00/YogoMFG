@@ -248,23 +248,38 @@ def user_cap(npi_exe, out_dir, exe_name, written=None):
 
     Current value of the game's profile (or of the global profile when the game has none), unless it is the value YogoMFG
     wrote itself (`written`); then the value remembered from before YogoMFG's first write. Read-only (export)."""
+    return user_caps(npi_exe, out_dir, {exe_name: written}).get(exe_name)
+
+
+def user_caps(npi_exe, out_dir, written_by_exe):
+    """Comme user_cap, mais pour plusieurs jeux avec UN SEUL export du pilote.
+
+    `written_by_exe` : {exe_name: valeur écrite par YogoMFG ou None}. Retourne {exe_name: cap ou None}.
+    Un export NPI coûte jusqu'à 30 s : en lancer un par jeu gelait le démarrage (6 jeux = 6 exports).
+    """
+    out = {e: None for e in written_by_exe}
     if not npi_exe or not os.path.isfile(npi_exe):
-        return None
+        return out
     try:
         text = _export_text(npi_exe)
     except Exception:
-        return None
+        return out
     if not text:
-        return None
+        return out
     profiles = _parse_profiles_text(text)
-    game = _game_name(profiles, exe_name)
-    cur = _profile_dword(text, game, ID_FPS_LIMIT) if game else None
-    if not cur:
-        cur = _profile_dword(text, _global_name(profiles), ID_FPS_LIMIT)
-    if cur and cur != written:
-        return cur
-    origin = next((p[2].get(str(ID_FPS_LIMIT)) for p in _load_applied(out_dir) if p[0] == game), None)
-    return origin or None
+    glob_cap = _profile_dword(text, _global_name(profiles), ID_FPS_LIMIT)
+    applied = _load_applied(out_dir)
+    for exe_name, written in written_by_exe.items():
+        game = _game_name(profiles, exe_name)
+        cur = _profile_dword(text, game, ID_FPS_LIMIT) if game else None
+        if not cur:
+            cur = glob_cap
+        if cur and cur != written:
+            out[exe_name] = cur
+            continue
+        origin = next((p[2].get(str(ID_FPS_LIMIT)) for p in applied if p[0] == game), None)
+        out[exe_name] = origin or None
+    return out
 
 
 def _load_applied(out_dir):

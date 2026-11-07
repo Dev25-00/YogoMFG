@@ -9,5 +9,15 @@ python -m PyInstaller --noconfirm --onefile --windowed --uac-admin --name YogoMF
   --add-data "tools\npi;tools\npi" ^
   --collect-all customtkinter ^
   yogomfg.py
+if errorlevel 1 (
+  echo.
+  echo ECHEC du build. Si l'erreur est "Acces refuse" sur dist\YogoMFG.exe, ferme YogoMFG avant de relancer.
+  exit /b 1
+)
+if not exist "dist\YogoMFG.exe" (
+  echo.
+  echo ECHEC du build: dist\YogoMFG.exe absent.
+  exit /b 1
+)
 echo.
 echo Build fini: dist\YogoMFG.exe

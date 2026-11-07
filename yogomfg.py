@@ -29,7 +29,7 @@ MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.7.2 beta"
+VERSION = "0.7.4 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -566,6 +566,7 @@ class App(ctk.CTk):
         self.hw, self.games, self.game = {}, [], None
         self.monitors, self.refresh = [], 0
         self._busy = False
+        self._calib = False      # calibrage de démarrage : lecture seule, ne doit PAS désactiver les boutons
         self._caps = {}             # exe -> plafond FPS réglé par le joueur (profil NVIDIA), respecté par le plan
         self._better = set()        # jeux optimisés pour lesquels une session mesurée propose un meilleur multiplicateur
         self._mfg_cap = 4
@@ -574,7 +575,6 @@ class App(ctk.CTk):
         self._clash = []
         self._cover_img = None
         self.exe = ctk.StringVar()
-        self.proxy = ctk.StringVar(value=self.cfg.get("proxy", "version.dll"))
         self.quality = ctk.StringVar(value=self.cfg.get("global", {}).get("dlss_quality", "balanced"))   # analyse seulement
         self._stats = {}            # .exe -> résumé de la dernière session mesurée (calibrage du multiplicateur)
         self._ups_cache = {}        # dossier du jeu -> (upscalers, manifeste) : affichage instantané au changement de jeu
@@ -720,13 +720,25 @@ class App(ctk.CTk):
 
     # ---------- threading ----------
     def _async(self, fn, cb):
+        def done(r, e):
+            """Une exception dans le callback laissait _busy à True : plus un seul bouton cliquable
+            jusqu'à la fermeture. On la journalise et on relâche toujours l'écran de chargement."""
+            try:
+                cb(r, e)
+            except Exception as ex:
+                try:
+                    self._log("✗ " + str(ex))
+                except Exception:
+                    pass
+                self._set_busy(False)
+
         def run():
             try:
                 r, e = fn(), None
             except Exception as ex:
                 r, e = None, ex
             try:
-                self.after(0, lambda: cb(r, e))
+                self.after(0, lambda: done(r, e))
             except (RuntimeError, tk.TclError):
                 pass                              # fenêtre fermée pendant le travail : rien à mettre à jour
         threading.Thread(target=run, daemon=True).start()
@@ -895,7 +907,7 @@ class App(ctk.CTk):
         if not messagebox.askyesno("YogoMFG", self.L("remove_ask2"), parent=self):
             return
         exe = self.exe.get()                                   # snapshot (pas de .get() dans le thread)
-        proxy = self.cfg.get("applied", {}).get(self.game["appid"]) or self.proxy.get()
+        proxy = self.cfg.get("applied", {}).get(self.game["appid"]) or installer.pick_proxy(exe)
         appid = self.game["appid"]
         last = not [a for a in self.cfg.get("installed_exe", {}) if a != appid]
         self._set_busy(True, self.L("busy_rm"))
@@ -997,7 +1009,7 @@ class App(ctk.CTk):
                     if info.get("anticheat"):
                         out.append((name, None, self.L("skip_ac") % ", ".join(info["anticheat"])))
                         continue
-                    ok, code, _ = installer.check_apply(MOD_ROOT, exe, "version.dll", applied.get(appid))
+                    ok, code, _ = installer.check_apply(MOD_ROOT, exe, installer.pick_proxy(exe), applied.get(appid))
                     if not ok:
                         out.append((name, None, self.L("skip_busy") + f" ({code})"))
                         continue
@@ -1006,12 +1018,12 @@ class App(ctk.CTk):
                     self._caps[exe] = nvcp.user_cap(npi, DATA, os.path.basename(exe), written.get(appid))
                     p = self._plan(appid, stats, exe)
                     self.after(0, lambda i=i, n=name: (self.prog.set((i + 0.5) / len(games)), self._log(f"⏳ {n} …")))
-                    res, need_admin = self._write_game(exe, "version.dll", p[0], p[1], vrr, npi, lambda f, line: None,
+                    res, need_admin = self._write_game(exe, installer.pick_proxy(exe), p[0], p[1], vrr, npi, lambda f, line: None,
                                                        bool(manual))
                     good = bool(res) and all(r for _, r in res)
                     out.append((name, good, self._result_text(p).partition(chr(10))[0]))
                     if good:
-                        out_cfg.append((appid, exe, p[0], p[1]))
+                        out_cfg.append((appid, exe, p[0], p[1], installer.pick_proxy(exe)))
                     if need_admin:
                         out.append((self.L("need_admin_nv"), False, ""))
                         break
@@ -1023,8 +1035,8 @@ class App(ctk.CTk):
 
         def done(out, e):
             try:
-                for appid, exe, mult, cap in out_cfg:        # config modifiée dans le thread UI seulement
-                    self.cfg.setdefault("applied", {})[appid] = "version.dll"
+                for appid, exe, mult, cap, proxy in out_cfg:  # config modifiée dans le thread UI seulement
+                    self.cfg.setdefault("applied", {})[appid] = proxy
                     self.cfg.setdefault("installed_exe", {})[appid] = exe
                     self.cfg.setdefault("mult_by_game", {})[appid] = mult
                     self.cfg.setdefault("cap_written", {})[appid] = cap
@@ -1084,7 +1096,7 @@ class App(ctk.CTk):
             for appid, exe in games.items():
                 name = os.path.basename(os.path.dirname(exe))
                 try:
-                    files = installer.uninstall(exe, applied.get(appid) or "version.dll") if os.path.isfile(exe) else []
+                    files = installer.uninstall(exe, applied.get(appid) or installer.pick_proxy(exe)) if os.path.isfile(exe) else []
                     out.append((name, True, files))
                     ok_ids.append(appid)
                     remaining.discard(appid)
@@ -1395,7 +1407,7 @@ class App(ctk.CTk):
         self._sync_mode()
         p = self._plan()
         txt = self._result_text(p)
-        cur = bool(on and installer.up_to_date(MOD_ROOT, exe, inimaker.make(st["mult"] or p[0]), st["proxy"] or "version.dll"))
+        cur = bool(on and installer.up_to_date(MOD_ROOT, exe, inimaker.make(st["mult"] or p[0]), st["proxy"] or installer.pick_proxy(exe)))
         done = bool(exe and on and cur and st["mult"] == p[0])   # installé, à jour, au bon multiplicateur : rien à refaire
         stale = bool(exe and on and not cur)                  # YogoMFG a été mis à jour depuis : réappliquer
         better = bool(exe and on and not done and not stale)  # une session mesurée propose un autre multiplicateur
@@ -1891,7 +1903,7 @@ class App(ctk.CTk):
         if self._clash:
             return self.L("blk_clash") % ", ".join(self._clash)
         hint = self.cfg.get("applied", {}).get(self.game["appid"])
-        ok, code, detail = installer.check_apply(MOD_ROOT, exe, self.proxy.get(), hint)
+        ok, code, detail = installer.check_apply(MOD_ROOT, exe, installer.pick_proxy(exe), hint)
         if ok:
             return None
         return {"foreign_ini": self.L("blk_foreign_ini"),
@@ -2003,20 +2015,21 @@ class App(ctk.CTk):
         mult, cap, warn, cal = p
         self._better.discard(appid)                                  # la proposition est appliquée
         prev = installer.status(exe_full)["mult"]
-        self.cfg.setdefault("applied", {})[appid] = self.proxy.get()   # proxy posé pour ce jeu
+        proxy = installer.pick_proxy(exe_full)       # la DLL que CE jeu importe vraiment : sinon rien ne se charge
+        self.cfg.setdefault("applied", {})[appid] = proxy               # proxy posé pour ce jeu
         self.cfg.setdefault("mult_by_game", {})[appid] = mult          # demandé -> plafond prouvé si le jeu donne moins
         self.cfg.setdefault("installed_exe", {})[appid] = exe_full     # recalibrage au prochain démarrage
         self.cfg.setdefault("cap_written", {})[appid] = cap            # notre cap : distingué du plafond réglé par le joueur
         if ucap and cap == ucap:
             self._log("ℹ " + self.L("cap_kept") % ucap)
-        self.cfg["npi_exe"] = self._npi_to_save(); self.cfg["proxy"] = self.proxy.get()
+        self.cfg["npi_exe"] = self._npi_to_save(); self.cfg["proxy"] = proxy
         config.save(self.cfg)
         head, _, tail = self._result_text(p).partition(chr(10))
         self._log(("✓ " if cal else "ℹ ") + head + (f"  (x{prev} → x{mult})" if cal and prev and prev != mult else "")
                   + (chr(10) + tail if tail else ""))
         if self.vrr:
             self._log("ℹ " + self.L("gsync_hint"))
-        args = (exe_full, self.proxy.get(), mult, cap, bool(self.vrr), self.npi.get())
+        args = (exe_full, proxy, mult, cap, bool(self.vrr), self.npi.get())
         free = bool(self.cfg.get("manual_mult", {}).get(appid))   # Manuel : plafond seulement, le menu du jeu décide
         qual, hz, vram, series = self.quality.get(), self.refresh, self.hw.get("vram_mb", 0), self.hw.get("series", "30")
         L = self.L
@@ -2086,17 +2099,22 @@ class App(ctk.CTk):
         réécrit INI + profil du jeu s'il a changé. Jamais d'INI et de profil désaccordés : sans admin alors que le
         pilote est autorisé, on laisse le clic « Optimiser » le faire (il demandera l'admin)."""
         games = {a: e for a, e in self.cfg.get("installed_exe", {}).items() if e and os.path.isfile(e)}
-        if self._busy or not games or not self.refresh:
+        if self._busy or self._calib or not games or not self.refresh:
             return
-        self._busy = True                                # lecture des journaux seulement : pas d'écran de chargement
+        self._calib = True              # lecture seule : les boutons restent cliquables pendant ce temps
 
         npi, written = self.npi.get(), dict(self.cfg.get("cap_written", {}))
 
         def read():
-            return {a: (e, installer.status(e), loganalyze.session_stats(e),
-                        nvcp.user_cap(npi, DATA, os.path.basename(e), written.get(a))) for a, e in games.items()}
+            caps = nvcp.user_caps(npi, DATA, {os.path.basename(e): written.get(a) for a, e in games.items()})
+            return {a: (e, installer.status(e), loganalyze.session_stats(e), caps.get(os.path.basename(e)))
+                    for a, e in games.items()}
 
         def decided(found, err):
+            self._calib = False
+            changed = set()
+            if self._busy:              # l'utilisateur a lancé Optimiser / Retirer entre-temps : ne rien écrire
+                return
             try:
                 # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
                 for appid, (exe, st, stats, ucap) in (found or {}).items():
@@ -2106,13 +2124,18 @@ class App(ctk.CTk):
                     p = self._plan(appid, stats, exe)
                     if st["installed"] and p[3] and p[0] != st["mult"]:
                         self._better.add(appid)
+                        changed.add(appid)
                         self._log("✨ " + os.path.basename(exe) + " — " + self.L("better_log") % (st["mult"], p[0]))
                 if err:
                     self._log("✗ " + str(err))
             except Exception as ex:
                 self._log("✗ " + str(ex))
             finally:
-                self._set_busy(False)
+                for g in self.games:            # le badge « ✨ OPTI DISPO » est dessiné DANS la jaquette
+                    if g.get("appid") in changed:
+                        self._thumbs.pop(g.get("dir"), None)
+                self._refresh_games()
+                self._refresh_status()
         self._async(read, decided)
 
     def _ask_admin(self):

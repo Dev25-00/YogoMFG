@@ -7,14 +7,78 @@ Sauvegarde : avant d'écrire, chaque fichier du jeu qui serait écrasé est DÉP
 Retirer supprime ce qui a été ajouté, remet chaque fichier remplacé, vérifie son sha256, puis supprime la sauvegarde.
 Les installations 0.6.x (sauvegarde « <dll>.yogobak » à côté de la DLL) sont reconnues et restaurées aussi.
 """
-import os, re, json, shutil, hashlib
+import os, re, json, shutil, struct, hashlib
 
 PROXIES = ("version.dll", "dxgi.dll", "d3d12.dll", "dinput8.dll", "winmm.dll", "dbghelp.dll")
+# Ordre de préférence du proxy : une DLL « neutre » d'abord, les DLL graphiques en dernier recours
+# (un proxy dxgi/d3d12 qui reforwarde mal casse le rendu, pas seulement la Frame Generation).
+PREFER = ("version.dll", "winmm.dll", "dinput8.dll", "dbghelp.dll", "dxgi.dll", "d3d12.dll")
 BACKUP = "YogoMFG_backup"
 MANIFEST = "manifest.json"
 INI = "dlssg_sm86.ini"
 FOLDER = "dlssg_sm86"
 _MARK = "; Généré par YogoMFG"
+
+
+def pe_imports(exe_path):
+    """Noms (minuscules) des DLL importées par un .exe, lus dans sa table d'imports PE. [] si illisible."""
+    try:
+        with open(exe_path, "rb") as f:
+            d = f.read()
+        if d[:2] != b"MZ":
+            return []
+        pe = struct.unpack_from("<I", d, 0x3C)[0]
+        if d[pe:pe + 4] != b"PE" + bytes(2):
+            return []
+        coff = pe + 4
+        nsec, = struct.unpack_from("<H", d, coff + 2)
+        opt_size, = struct.unpack_from("<H", d, coff + 16)
+        opt = coff + 20
+        magic, = struct.unpack_from("<H", d, opt)
+        imp_rva = struct.unpack_from("<I", d, opt + (96 if magic == 0x10B else 112) + 8)[0]
+        if not imp_rva:
+            return []
+        secs = []
+        for i in range(nsec):
+            s = opt + opt_size + i * 40
+            vsize, vaddr, rsize, raddr = struct.unpack_from("<IIII", d, s + 8)
+            secs.append((vaddr, max(vsize, rsize), raddr))
+
+        def off(rva):
+            for vaddr, size, raddr in secs:
+                if vaddr <= rva < vaddr + size:
+                    return raddr + (rva - vaddr)
+            return None
+
+        out, q = [], off(imp_rva)
+        if q is None:
+            return []
+        while True:
+            desc = d[q:q + 20]
+            if len(desc) < 20 or desc == bytes(20):
+                break
+            o = off(struct.unpack_from("<I", desc, 12)[0])
+            if o is not None and 0 <= o < len(d):
+                end = d.find(bytes(1), o)
+                if end > o:
+                    out.append(d[o:end].decode("ascii", "replace").lower())
+            q += 20
+        return out
+    except Exception:
+        return []
+
+
+def pick_proxy(exe_path):
+    """Quelle DLL proxy poser pour CE jeu : la première de PREFER que l'exe importe vraiment.
+
+    Poser `version.dll` à un jeu qui ne l'importe pas ne charge RIEN : pas de spoof d'architecture, donc
+    le jeu croit voir une RTX 20/30 et ne propose même plus la Frame Generation NVIDIA (vécu sur
+    CONTROL Resonant, qui importe winmm.dll, et sur Crimson Desert). Repli sur version.dll si le PE est illisible.
+    """
+    imported = set(pe_imports(exe_path))
+    if not imported:
+        return "version.dll"
+    return next((p for p in PREFER if p in imported), "version.dll")
 
 
 def _src(mod_root, proxy):
@@ -265,7 +329,7 @@ def check_apply(mod_root, exe_path, proxy="version.dll", applied_proxy=None):
 
 def _selftest():
     """Aller-retour complet sur un faux jeu (dossier temporaire) : le jeu d'origine revient à l'octet près."""
-    import tempfile
+    import sys, tempfile
     with tempfile.TemporaryDirectory() as t:
         mod = os.path.join(t, "mod")
         for rel, data in (("version.dll", b"MOD-PROXY"), (os.path.join(FOLDER, "backend", "sm86_backend.dll"), b"BE"),
@@ -284,6 +348,23 @@ def _selftest():
         open(exe, "wb").write(b"EXE")
         open(os.path.join(game, "version.dll"), "wb").write(os.urandom(4096))
         before = snap(game)
+        # 0) table d'imports PE + choix du proxy
+        assert pe_imports(exe) == [], "un faux .exe ne doit rien rendre"
+        assert pick_proxy(exe) == "version.dll", "repli quand le PE est illisible"
+        real = pe_imports(sys.executable)                       # python.exe : vrai PE, imports réels
+        assert real and all(n.endswith(".dll") for n in real), real
+        assert all(n == n.lower() for n in real), real
+        _pe = pe_imports
+        try:                                                    # l'ordre de PREFER décide, pas celui de l'exe
+            globals()["pe_imports"] = lambda p: ["kernel32.dll", "d3d12.dll", "winmm.dll"]
+            assert pick_proxy(exe) == "winmm.dll", pick_proxy(exe)
+            globals()["pe_imports"] = lambda p: ["kernel32.dll", "dxgi.dll", "version.dll"]
+            assert pick_proxy(exe) == "version.dll", pick_proxy(exe)
+            globals()["pe_imports"] = lambda p: ["kernel32.dll", "user32.dll"]
+            assert pick_proxy(exe) == "version.dll", "aucun candidat -> repli"
+        finally:
+            globals()["pe_imports"] = _pe
+
         assert check_apply(mod, exe)[0]
         install(mod, exe, _MARK + "\n[FrameGeneration]\nMaxGeneratedFrames=2\n")
         assert open(os.path.join(game, "version.dll"), "rb").read() == b"MOD-PROXY"

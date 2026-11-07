@@ -1,5 +1,30 @@
 # Changelog — YogoMFG
 
+## 0.7.4 beta
+
+- La DLL proxy est maintenant choisie d'après la table d'imports du jeu, et non plus fixée à `version.dll`.
+  Un jeu qui n'importe pas `version.dll` ne chargeait rien du tout : sans le mod, le jeu voyait sa vraie carte
+  RTX 20/30 et ne proposait même plus la Frame Generation NVIDIA, seulement AMD FSR. C'était le cas de
+  CONTROL Resonant, qui importe `winmm.dll`, et de Crimson Desert.
+- Les DLL neutres sont préférées (`version`, `winmm`, `dinput8`, `dbghelp`) et les DLL graphiques
+  (`dxgi`, `d3d12`) ne servent qu'en dernier recours : un proxy graphique qui reforwarde mal casse le rendu
+  entier, pas seulement la génération d'images.
+- Le proxy réellement posé est mémorisé par jeu, donc « Retirer et restaurer » enlève la bonne DLL.
+
+## 0.7.3 beta
+
+- Au démarrage, les boutons restent cliquables. Le calibrage qui relit les sessions mesurées prenait le verrou de
+  l'interface sans afficher d'écran de chargement : pendant tout ce temps, Optimiser tous les jeux, Retirer de tous les
+  jeux, Retirer et restaurer, Ré-optimiser et le changement de langue ne répondaient pas, sans rien indiquer à l'écran.
+  Le calibrage utilise maintenant son propre état et ne gèle plus rien.
+- Le calibrage de démarrage ne lit plus le profil NVIDIA qu'une seule fois pour tous les jeux, au lieu d'un export du
+  pilote par jeu. Avec six jeux optimisés, c'était six lancements de nvidiaProfileInspector à la suite.
+- Si l'utilisateur lance Optimiser ou Retirer pendant le calibrage, celui-ci abandonne ses résultats au lieu d'écrire
+  par-dessus la nouvelle configuration.
+- Une erreur imprévue pendant une tâche de fond ne gèle plus l'application. L'écran de chargement était laissé en place
+  définitivement : plus aucun bouton ne répondait jusqu'à la fermeture. L'erreur est désormais écrite dans la console et
+  l'interface est rendue.
+
 ## 0.7.2 beta
 
 - Retirer de tous les jeux et Optimiser tous les jeux libèrent toujours l'interface à la fin, même après une erreur :
