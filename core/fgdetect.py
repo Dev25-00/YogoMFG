@@ -17,6 +17,20 @@ def supports(game_dir):
     return "unknown"
 
 
+_FG_FILES = {"sl.dlss_g.dll", "nvngx_dlssg.dll"}  # the DLSS Frame Generation plugin or runtime itself (nvngx.dll / sl.dlss.dll = upscaling only)
+
+
+def fg_capable(game_dir):
+    """True when the game ships DLSS Frame Generation (Streamline plugin or NGX runtime): only those games are listed."""
+    base = game_dir.count(os.sep)
+    for dp, dirs, files in os.walk(game_dir):
+        if dp.count(os.sep) - base >= 4:
+            dirs[:] = []
+        if _FG_FILES & {f.lower() for f in files}:
+            return True
+    return False
+
+
 def _find(game_dir, name):
     name = name.lower()
     for dp, _, files in os.walk(game_dir):

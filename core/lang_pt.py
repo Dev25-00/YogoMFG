@@ -95,7 +95,7 @@ TIPS = {
 
 FT = {
     "nolog": "Nenhum registro do mod encontrado: jogue uma sessão com o mod carregado.",
-    "none": "Sem medição: marque «Medir a sessão» (Avançado), aplique, jogue 2 minutos e volte aqui.",
+    "none": "Sem medição: otimize o jogo, jogue 2 minutos com Frame Generation ativa e volte aqui.",
     "fps": "Quadros reais: %s por segundo. Exibidos (x%d): cerca de %s.",
     "gpu_full": "Sua placa de vídeo está no máximo (%d %%). Ela é o limite, não um teto de FPS.",
     "gpu_low": "Sua placa não está no máximo (%d %%): quem limita é o processador ou o motor do jogo, não a placa.",

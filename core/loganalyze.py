@@ -1,10 +1,11 @@
 """Analyse les logs du mod après une session de jeu.
 
-Le mod écrit dans <dossier .exe>\\dlssg_sm86\\logs\\*.jsonl (Level>=2, FrameTiming=1).
+Le mod 0.4.1 écrit dans <dossier .exe>\\dlssg_sm86\\logs\\ : dlssg_sm86.log (une ligne « heure pid EXE niveau {json} »
+par événement, Level>=2) et frame_timing.txt (FrameTiming=1). Les *.jsonl du mod 0.4.0 restent lus en repli.
 Schéma non garanti -> parsing tolérant : on agrège tout champ numérique 'fps'/'ms',
 on remonte les warnings/erreurs, et on compare au FPS cible pour guider l'utilisateur.
 """
-import os, glob, json, statistics
+import os, re, glob, json, statistics
 from core import i18n
 
 
@@ -12,12 +13,31 @@ def _logs_dir(exe_path):
     return os.path.join(os.path.dirname(exe_path), "dlssg_sm86", "logs")
 
 
+def _log_files(exe_path, *patterns):
+    """Le journal unique du mod 0.4.1 s'il existe, sinon les *.jsonl du 0.4.0 (le plus récent en tête)."""
+    d = _logs_dir(exe_path)
+    one = os.path.join(d, "dlssg_sm86.log")
+    if os.path.isfile(one):
+        return [one]
+    return sorted((f for p in patterns for f in glob.glob(os.path.join(d, p))), key=os.path.getmtime, reverse=True)
+
+
+def _obj(line):
+    """dict JSON d'une ligne de log (préfixe « heure pid EXE niveau » du 0.4.1 ignoré), ou None."""
+    i = line.find("{")
+    if i < 0:
+        return None
+    try:
+        o = json.loads(line[i:])
+    except ValueError:
+        return None
+    return o if isinstance(o, dict) else None
+
+
 def read(exe_path, max_lines=20000):
     """Retourne {found, files, fps[], gen_ms[], warnings[], errors[]}."""
-    d = _logs_dir(exe_path)
     res = {"found": False, "files": [], "fps": [], "gen_ms": [], "warnings": [], "errors": []}
-    files = sorted(glob.glob(os.path.join(d, "backend_*.jsonl")) + glob.glob(os.path.join(d, "loader_*.jsonl")),
-                   key=os.path.getmtime, reverse=True)      # pas frames_*.jsonl : autre format, autre analyse
+    files = _log_files(exe_path, "backend_*.jsonl", "loader_*.jsonl")   # pas frames_*.jsonl : autre format, autre analyse
     if not files:
         return res
     res["found"] = True
@@ -29,14 +49,9 @@ def read(exe_path, max_lines=20000):
                 n += 1
                 if n > max_lines:
                     break
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    o = json.loads(line)
-                except ValueError:
-                    continue
-                _collect(o, res)
+                o = _obj(line)
+                if o is not None:
+                    _collect(o, res)
         except OSError:
             continue
     return res
@@ -92,8 +107,7 @@ def mfg_verdict(exe_path, lang="fr"):
     ce que la FG a vraiment créé ; mfg_summary.max_count = ce que le jeu a demandé ;
     plugin_mfg_force / plugin_mfg_unrecognized = verdict du forçage.
     """
-    files = sorted(glob.glob(os.path.join(_logs_dir(exe_path), "backend_*.jsonl")),
-                   key=os.path.getmtime, reverse=True)
+    files = _log_files(exe_path, "backend_*.jsonl")
     if not files:
         return []
     drs = created = created_max = asked = forced = None
@@ -103,11 +117,8 @@ def mfg_verdict(exe_path, lang="fr"):
             for line in f:
                 if '"event"' not in line:
                     continue
-                try:
-                    o = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(o, dict):
+                o = _obj(line)
+                if o is None:
                     continue
                 ev = o.get("event")
                 if ev == "drs_dlssg":
@@ -148,7 +159,7 @@ def mfg_verdict(exe_path, lang="fr"):
 _FT = {
     "fr": {
         "nolog": "Aucun log du mod trouvé : joue une session avec le mod chargé.",
-        "none": "Pas de mesure : coche « Mesurer la session » (Avancé), applique, joue 2 minutes, puis reviens ici.",
+        "none": "Pas de mesure : optimise le jeu, joue 2 minutes avec la Frame Generation active, puis reviens ici.",
         "fps": "Images réelles : %s par seconde. Affichées (x%d) : environ %s.",
         "gpu_full": "Ta carte graphique est à fond (%d %%). C'est elle qui limite, pas un plafond de FPS.",
         "gpu_low": "Ta carte n'est pas à fond (%d %%) : c'est le processeur ou le moteur du jeu qui limite, pas la carte.",
@@ -162,7 +173,7 @@ _FT = {
     },
     "en": {
         "nolog": "No mod log found: play a session with the mod loaded.",
-        "none": "No measurement: tick \"Measure the session\" (Advanced), apply, play 2 minutes, then come back.",
+        "none": "No measurement: optimize the game, play 2 minutes with Frame Generation on, then come back.",
         "fps": "Real frames: %s per second. Displayed (x%d): about %s.",
         "gpu_full": "Your graphics card is maxed out (%d %%). It is the limit, not an FPS cap.",
         "gpu_low": "Your card is not maxed out (%d %%): the CPU or the game engine is the limit, not the card.",
@@ -177,13 +188,63 @@ _FT = {
 }
 
 
+_SEC = re.compile(r"^# second (\d+)\s.*?\bfps ([\d.]+)(?:.*?\bfg ([\d.]+))?(?:.*?\bn (\d+))?(?:.*?\bgpu (\d+)%)?")
+
+
+def _summary(rows):
+    """rows = [(fps réels, gpu %|None, fg ms|None, images générées|None)] par seconde, chargement exclu.
+
+    Ne garde que les secondes où la Frame Generation tournait (menus, pauses, cinématiques la coupent), puis :
+    real = médiane, low = 10e centile (base que le GPU tient sans faiblir), plateau = FPS réels figés (p10..p90 dans 3 %)
+    avec un GPU sous 95 % -> un limiteur (jeu, utilisateur ou notre cap) tient les FPS, pas la carte.
+    """
+    if any(r[3] for r in rows):
+        rows = [r for r in rows if r[3]]
+    fps = [r[0] for r in rows]
+    if not fps:
+        return None
+    gpu = [r[1] for r in rows if r[1] is not None]
+    fg = [r[2] for r in rows if r[2] is not None]
+    n = [r[3] for r in rows if r[3]]
+    med = statistics.median(fps)
+    q = statistics.quantiles(fps, n=10) if len(fps) >= 2 else [med] * 9
+    g = statistics.median(gpu) if gpu else None
+    flat = len(fps) >= 20 and med > 0 and (q[8] - q[0]) <= 0.03 * med
+    return {"real": med, "low": q[0], "gpu": g, "fg": statistics.median(fg) if fg else None,
+            "mult": (statistics.median(n) if n else 0) + 1, "seconds": len(fps),
+            "plateau": med if flat and g is not None and g < 95 else None,
+            "locked": len(fps) > 20 and statistics.pstdev(fps) < 0.3}
+
+
+def _timing_stats(path):
+    """Résumé des lignes « # second » de la DERNIÈRE session de frame_timing.txt (mod 0.4.1), ou None."""
+    rows = []
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.startswith("# ==== session"):
+                    rows = []                                 # nouvelle session : seule la dernière compte
+                    continue
+                m = _SEC.match(line) if line.startswith("# second") else None
+                if not m or int(m.group(1)) < 6:              # saute le chargement
+                    continue
+                rows.append((float(m.group(2)), float(m.group(5)) if m.group(5) else None,
+                             float(m.group(3)) if m.group(3) else None, int(m.group(4)) if m.group(4) else None))
+    except OSError:
+        return None
+    return _summary(rows)
+
+
 def _frame_stats(exe_path):
-    """Médianes du dernier frames_<pid>.jsonl : {real, gpu, fg, mult} ou None (pas de mesure)."""
-    files = sorted(glob.glob(os.path.join(_logs_dir(exe_path), "frames_*.jsonl")),
+    """Résumé de la dernière session mesurée (voir _summary) ou None (pas de mesure)."""
+    ft = os.path.join(_logs_dir(exe_path), "frame_timing.txt")
+    if os.path.isfile(ft):
+        return _timing_stats(ft)
+    files = sorted(glob.glob(os.path.join(_logs_dir(exe_path), "frames_*.jsonl")),     # mod 0.4.0
                    key=os.path.getmtime, reverse=True)
     if not files:
         return None
-    fps, gpu, fg, n = [], [], [], []
+    rows = []
     try:
         with open(files[0], encoding="utf-8", errors="ignore") as f:
             for i, line in enumerate(f):
@@ -195,23 +256,20 @@ def _frame_stats(exe_path):
                     o = json.loads(line)
                 except ValueError:
                     continue
-                if not isinstance(o, dict) or (_n(o.get("s")) or 0) < 6:      # saute le chargement
+                if not isinstance(o, dict) or (_n(o.get("s")) or 0) < 6 or not isinstance(o.get("fps"), (int, float)):
                     continue
-                if isinstance(o.get("fps"), (int, float)):
-                    fps.append(float(o["fps"]))
-                if isinstance(o.get("gpu"), (int, float)):
-                    gpu.append(float(o["gpu"]))
-                if isinstance(o.get("fg"), dict) and isinstance(o["fg"].get("avg"), (int, float)):
-                    fg.append(float(o["fg"]["avg"]))
-                if _n(o.get("n")):
-                    n.append(_n(o["n"]))
+                fg = o.get("fg")
+                rows.append((float(o["fps"]), float(o["gpu"]) if isinstance(o.get("gpu"), (int, float)) else None,
+                             float(fg["avg"]) if isinstance(fg, dict) and isinstance(fg.get("avg"), (int, float)) else None,
+                             _n(o.get("n"))))
     except OSError:
         return None
-    if not fps:
-        return None
-    return {"real": statistics.median(fps), "gpu": statistics.median(gpu) if gpu else None,
-            "fg": statistics.median(fg) if fg else None, "mult": (statistics.median(n) if n else 0) + 1,
-            "locked": len(fps) > 20 and statistics.pstdev(fps) < 0.3}
+    return _summary(rows)
+
+
+def session_stats(exe_path):
+    """Résumé de la dernière session (real, low, plateau, mult, seconds, gpu…) pour le calibrage, ou None."""
+    return _frame_stats(exe_path)
 
 
 def measured_mult(exe_path):
@@ -329,3 +387,37 @@ def _from_checklist(did, fps_target, goal, delta):
             out.append(f"  → Tu as de la marge : remonte DLSS vers « {QUALITY_FR[reco]} » pour une image plus nette.")
             delta["dlss_quality"] = reco
     return out if len(out) > 2 else []
+
+
+def _selftest():
+    """Lecture des logs du mod 0.4.1 (frame_timing.txt + dlssg_sm86.log) sur un faux dossier de jeu."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        d = os.path.join(t, "dlssg_sm86", "logs")
+        os.makedirs(d)
+        sec = ("# second %d  frames 60  fps 61.2  dt 16.3 16.2 17.0 18.0  fg 2.683 2.828 2.957 2.957  n %d  "
+               "gdt 1 1 1 1  gpu 97%%  fb 2%%\n")
+        with open(os.path.join(d, "frame_timing.txt"), "w") as f:
+            f.write("# ==== session  pid 1\n" + "".join(sec % (i, 5) for i in range(30))     # ancienne session ignorée
+                    + "# ==== session  pid 2\n" + "".join(sec % (i, 2) for i in range(30)) + "# end  frames 1800\n")
+        with open(os.path.join(d, "dlssg_sm86.log"), "w") as f:
+            f.write('10:00:00.000 2 game.exe I {"event":"fg_gate_create_feature","parameters":{"multi_frame_count":2}}\n')
+        exe = os.path.join(t, "game.exe")
+        st = _frame_stats(exe)
+        assert st and st["mult"] == 3 and abs(st["real"] - 61.2) < 1e-9 and st["gpu"] == 97 and abs(st["fg"] - 2.683) < 1e-9
+        assert measured_mult(exe) == 3 and read(exe)["found"]
+        assert any("3X" in x for x in mfg_verdict(exe, "en"))
+        assert st["plateau"] is None                                   # GPU à 97 % : c'est la carte qui limite
+    # menus/pauses (FG coupée, n=0) ignorés ; base basse = 10e centile
+    menu = [(200.0, 40.0, None, 0)] * 30
+    play = [(60.0 + (i % 20), 99.0, 3.0, 2) for i in range(100)]
+    sm = _summary(menu + play)
+    assert sm["seconds"] == 100 and 60 <= sm["low"] < 63 and sm["plateau"] is None and sm["mult"] == 3
+    # limiteur : FPS réels figés à 60 avec un GPU à 70 % -> plateau 60
+    cap = _summary([(60.0 + (i % 3) * 0.1, 70.0, 3.0, 2) for i in range(90)])
+    assert cap["plateau"] and abs(cap["plateau"] - 60.1) < 0.2
+    print("loganalyze selftest OK")
+
+
+if __name__ == "__main__":
+    _selftest()

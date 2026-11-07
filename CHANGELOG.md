@@ -1,5 +1,71 @@
 # Changelog — YogoMFG
 
+## 0.7.0 beta
+
+- Le plafond prouvé d'un jeu (ex. x4 pour Resident Evil Requiem, plugin DLSS-G 2.8.0) est lié à la version du plugin :
+  si le jeu est mis à jour avec un autre plugin, le plafond est oublié et x5/x6 sont de nouveau proposés.
+- Mode Manuel = liberté dans le jeu : xN devient un PLAFOND (INI du mod) et le pilote n'impose plus de multiplicateur ;
+  le joueur choisit de x2 à xN dans le menu du jeu. Un multiplicateur imposé par une optimisation précédente est retiré.
+  En Recommandé, le pilote impose toujours le multiplicateur calculé (nécessaire pour les jeux dont le menu plafonne).
+- Deux modes au-dessus d'Optimiser : « Recommandé » (calcul automatique, par défaut) et « Manuel » (le joueur choisit
+  x3, x4, x5 ou x6, borné au plafond prouvé du jeu). Le plafond FPS, G-Sync/FreeSync et le profil NVIDIA restent réglés
+  automatiquement dans les deux modes. En Manuel, une ligne rappelle le coût VRAM de la génération d'images
+  (environ +0,5 Go en 1440p, le même de x3 à x6) et ce qui change vraiment : moins d'images réelles.
+- Le plafond FPS réglé par le joueur (« Nombre maximal d'images par seconde » de l'application NVIDIA, profil du jeu ou
+  global) est respecté : la cible devient le plus petit des deux entre ce plafond et « fréquence − 3 ». La fiche l'annonce
+  dès la sélection du jeu. YogoMFG distingue sa propre valeur écrite de celle du joueur.
+- Retirer liste chaque fichier supprimé ou restauré, et la jaquette perd son bandeau YOGOMFG tout de suite (avant, il
+  restait affiché jusqu'au redémarrage).
+- Écran de chargement pendant Optimiser et Retirer : la liste des jeux et la fiche sont couvertes (spinner + message),
+  rien d'autre n'est cliquable ; la langue et les Options logiciel attendent la fin.
+- Le bouton devient « ✓ Déjà optimisé » (grisé) quand le jeu a déjà YogoMFG au bon multiplicateur, et la jaquette porte un
+  bandeau vert « ✓ YOGOMFG ».
+- Plus d'écriture silencieuse au démarrage : quand la dernière partie mesurée permet un meilleur multiplicateur, YogoMFG le
+  propose (« ✨ Optimisation disponible (xN) » sur le bouton, bandeau ambre « ✨ OPTI DISPO » sur la jaquette) ; un clic l'applique.
+  Après Optimiser, un message invite à jouer 5 minutes pour obtenir cette proposition.
+- La liste n'affiche plus que les jeux qui contiennent la Frame Generation DLSS (`sl.dlss_g.dll` ou `nvngx_dlssg.dll`).
+  Un jeu déjà optimisé reste visible pour pouvoir le retirer.
+- Plus de bouton « Analyser » : la session est analysée en interne au clic suivant sur Optimiser (ou au démarrage)
+  et le multiplicateur est recalibré tout seul. « Exporter le rapport » passe dans les Options logiciel.
+- Le choix du proxy disparaît des Options logiciel : le mod est toujours posé en `version.dll`.
+- Upscalers : nouveau bouton « Tout mettre à jour ». Pendant une mise à jour, tous les boutons (installer, restaurer,
+  bibliothèque) sont grisés à l'écran jusqu'à la fin, au lieu de rester cliquables en apparence.
+
+YogoMFG devient une application en un clic. La fiche du jeu n'a plus que deux grands boutons, « Optimiser ce jeu » et
+« Retirer et restaurer », et une ligne de résultat (par exemple « x3 · 59 images calculées → 177 affichées »). Le
+choix du multiplicateur, de la cible FPS, de la fréquence de l'écran, du préréglage DLSS-G, des options du mod et le
+préréglage NVIDIA global ont disparu de l'interface : tout est décidé automatiquement. Cliquer « Optimiser » vaut
+accord : il n'y a plus de fenêtre de confirmation, mais chaque écriture reste relue, affichée dans la console et
+annulée par « Retirer et restaurer ».
+
+- **Mod 0.4.1** (release de sdli1995 publiée par Coldwood1026). Pilote NVIDIA R580 ou plus récent exigé par le mod.
+  Le fichier `dlssg_sm86.ini` ne contient plus que des clés valides avec des valeurs fixes et sûres : image identique au
+  runtime officiel NVIDIA (`Optimized=1`, `Preset=A`), mesure de la session toujours active (`FrameTiming=1`),
+  super-résolution du mod coupée. Les clés inventées des versions précédentes (HudFix, VBlankSync, INT8Boost) et le
+  réglage avec pertes `Optimized=2` sont supprimés.
+- **Multiplicateur automatique, de x3 à x6** (le x2 est laissé à la Frame Generation FSR d'AMD). La cible est la
+  fréquence de l'écran le plus rapide, 3 FPS en dessous sur un écran G-Sync / FreeSync ; c'est aussi le cap FPS du
+  profil du jeu. La première fois, le multiplicateur vise environ 55 images réelles par seconde (180 Hz → x3,
+  240 Hz → x4, 360 Hz → x6). Ensuite YogoMFG se calibre sur la session mesurée : il prend le plus petit multiplicateur
+  qui atteint la cible avec le nombre d'images réelles que la carte tient sans faiblir, respecte un plafond de FPS posé
+  par le jeu ou l'utilisateur, ne dépasse jamais le maximum prouvé du jeu, et prévient en une ligne quand le jeu
+  tomberait sous 45 images réelles (30 sur les cartes d'entrée de gamme). Le recalibrage se fait au clic suivant sur
+  « Optimiser » ou au démarrage suivant de YogoMFG.
+- **Profil NVIDIA** : dans le profil du jeu, cap FPS, G-Sync / FreeSync et nombre d'images générées ; dans le profil
+  global, seulement le plafond de la Frame Generation (jusqu'à x6) et G-Sync / FreeSync en plein écran et fenêtré,
+  jamais un multiplicateur imposé. Les valeurs globales d'origine sont sauvegardées avant la première écriture et
+  remises quand plus aucun jeu n'utilise YogoMFG. Ré-optimiser un jeu ne remplace plus les valeurs d'origine mémorisées
+  par les nôtres, et le retour arrière d'un jeu ne touche plus aux autres jeux.
+- **Sauvegarde et restauration vérifiées** : avant d'écrire, chaque fichier du jeu qui serait écrasé est déplacé dans
+  `YogoMFG_backup\` à côté du `.exe`, avec un `manifest.json` (chemin, SHA-256, remplacé ou ajouté). « Retirer et
+  restaurer » supprime ce qui a été ajouté, remet chaque fichier remplacé, vérifie son SHA-256, supprime la sauvegarde
+  et annule les réglages NVIDIA du jeu, sans passer par Steam. Les installations 0.6.x (fichiers `.yogobak`) sont
+  reconnues et restaurées. Rien n'est touché si le jeu est lancé.
+- **Analyse** : lecture des nouveaux journaux du mod 0.4.1 (`dlssg_sm86.log` et `frame_timing.txt`) ; les menus, pauses
+  et cinématiques sont écartés des mesures.
+- **README** : correction d'une erreur. Le mod n'est pas open source : ce sont des binaires tiers fermés. Les contrôles
+  faits avant de l'embarquer (empreinte SHA-256, Microsoft Defender, signatures) et leur limite sont expliqués.
+
 ## 0.6.2 beta
 
 - **Correctif majeur** : pour un jeu dont le profil NVIDIA est celui d'origine (ex. God of War Ragnarök), YogoMFG créait un

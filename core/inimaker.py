@@ -1,45 +1,98 @@
-"""Génère dlssg_sm86.ini selon la config. Clés valides mod 0.4.0 seulement.
+"""Génère dlssg_sm86.ini (mod 0.4.1) et décide le multiplicateur automatiquement.
 
-Format du mod « dlssg_for_sm86 / SM75 » de sdli1995 (https://github.com/sdli1995/dlssg_for_sm86, MIT).
-
-Non listé = défaut du mod. On n'écrit que ce qu'on change.
+Format du mod « dlssg_for_sm86 / SM75 » de sdli1995 (https://github.com/sdli1995/dlssg_for_sm86).
+Clés et valeurs vérifiées dans docs/INSTALL.en.md de la release 0.4.1 ; une clé absente prend le défaut validé du mod.
+Une valeur invalide n'est jamais remplacée par un défaut : le mod coupe la fonction concernée. D'où des valeurs FIXES.
 """
+import re, math
 
-# fps cible -> indice SuperResolution conseillé (texte, affiché à l'user).
-SR_HINT = {60: "DLSS Quality suffit.",
-           120: "DLSS Balanced/Performance.",
-           180: "DLSS Performance/Ultra Performance + baisser le path tracing."}
+MARK = "; Généré par YogoMFG"
 
+# Seules clés écrites. Preset=A : « Auto » a été supprimé le 2026-10-22 (il tourne comme A avec un avertissement).
+# Optimized=1 = sortie identique bit à bit au runtime NVIDIA officiel (2 et 3 sont avec pertes).
+ALLOWED = {
+    "FrameGeneration": {"Engine", "MaxGeneratedFrames"},
+    "DLSSG": {"Optimized", "Preset"},
+    "Logging": {"Level", "Directory", "FrameTiming"},
+    "Runtime": {"Mode"},
+    "SuperResolution": {"Mode"},
+}
 
-def make(cfg):
-    """cfg: dict avec clés multiplier(2/3/4/5/6), optimized, preset, catmull, sr_on, force_mfg, frame_timing."""
-    chosen = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5}.get(cfg.get("multiplier", 4), 3)  # multiplicateur N -> MaxGeneratedFrames N-1
-    # Multiplicateur imposé par le pilote : le plafond du mod reste à 6X, sinon un changement rapide vers x5/x6
-    # (sans réinstaller) serait rabaissé par le mod.
-    mgf = 5 if cfg.get("max_ceiling") else chosen
-    # force_mfg : patcher le plugin du jeu pour qu'il demande N (expérimental, 5X/6X seulement).
-    # Doc mod : ForcePluginFrames réécrit le plafond 4X du plugin ; MfgProbe=1 journalise si ça prend.
-    force = bool(cfg.get("force_mfg")) and chosen >= 4
-    fg = ("[FrameGeneration]\n"
-          "Engine=DLSS\n"
-          f"MaxGeneratedFrames={mgf}\n"
-          f"CatmullRomWarp={1 if cfg.get('catmull', True) else 0}\n")
-    if force:
-        fg += f"ForcePluginFrames={chosen}\n"
-    return (
-        "; Généré par YogoMFG\n"
-        + fg + "\n"
-        "[DLSSG]\n"
-        f"Optimized={cfg.get('optimized', 2)}\n"
-        f"Preset={cfg.get('preset', 'Auto')}\n\n"
-        "[SuperResolution]\n"
-        f"Mode={'On' if cfg.get('sr_on', True) else 'Off'}\n\n"
-        "[Logging]\nLevel=2\n" + ("FrameTiming=1\n" if cfg.get("frame_timing") else "") + "\n"   # 2 = configuration + loading (runtime_redirect) -> multiplicateur/génération négociés lisibles
-        "[Runtime]\nMode=Bundled\n"
-        + ("\n[Debug]\nMfgProbe=1\n" if force else "")
-    )
+FIRST_RUN_BASE = 55  # sans mesure : ~55 images réelles visées (180 Hz VRR -> T=177 -> x3, 59 réelles)
+MIN_BASE = 45        # base réelle visée ; en dessous, les images générées se voient : on prévient
+WEAK_BASE = 30       # cartes faibles (RTX 2050/2060, ou base mesurée sous 45) : 30 images réelles acceptées
+MIN_MULT = 3         # x2 est laissé à la Frame Generation FSR d'AMD : YogoMFG va de x3 à x6
+MIN_SECONDS = 60     # au moins une minute de jeu avec la Frame Generation pour calibrer
+MOD_MAX = 6          # le runtime embarqué (310.9.16) va jusqu'à 6X (MaxGeneratedFrames=5)
 
 
+def make(mult):
+    """Texte complet de dlssg_sm86.ini pour un multiplicateur 2..6."""
+    mgf = max(1, min(MOD_MAX - 1, int(mult) - 1))
+    return (f"{MARK}\n\n"
+            "[FrameGeneration]\nEngine=DLSS\n"
+            f"MaxGeneratedFrames={mgf}\n\n"
+            "[DLSSG]\nOptimized=1\nPreset=A\n\n"
+            "[Logging]\nLevel=2\nDirectory=dlssg_sm86\\logs\nFrameTiming=1\n\n"
+            "[Runtime]\nMode=Bundled\n\n"
+            "[SuperResolution]\nMode=Off\n")
+
+
+def plan(refresh_hz, vrr, stats=None, ceiling=MOD_MAX, weak=False, user_cap=None):
+    """Image propre d'abord : (multiplicateur, cible T = cap FPS du profil du jeu | None, avertissement, calibré).
+
+    T = fréquence - 3 sur écran VRR (reste dans la plage G-Sync/FreeSync), la fréquence sinon. M toujours dans
+    [3, plafond] (plafond = prouvé par une session, x6 au plus ; jamais sous 3 même si le jeu a prouvé moins).
+    - pas de session mesurée (moins de MIN_SECONDS de jeu avec la FG) : M = arrondi(T / 55) ;
+    - FPS réels figés par un limiteur L (plateau, GPU < 95 %) : M = arrondi(T / L) ; si ce plateau est NOTRE cap
+      (L x multiplicateur mesuré ~ T), on garde ce multiplicateur (pas d'aller-retour) ;
+    - sinon : le plus petit M tel que T / M <= base basse mesurée (10e centile) ; si même le plafond n'y suffit pas,
+      le plafond (l'écran VRR absorbe l'écart).
+    Avertissement si T / M < 45 images réelles (30 sur carte faible ; une base mesurée sous 45 compte comme faible).
+    """
+    hz = int(refresh_hz or 0)
+    top = max(MIN_MULT, min(MOD_MAX, int(ceiling or MOD_MAX)))
+    if hz <= 0:
+        return MIN_MULT, None, False, False
+    t = hz - 3 if vrr else hz
+    if user_cap and 20 <= int(user_cap) < t:   # the player's own fps limit (NVIDIA app / profile) wins: never go above it
+        t = int(user_cap)
+    cal = bool(stats and stats.get("seconds", 0) >= MIN_SECONDS and (stats.get("low") or 0) > 0)
+    if not cal:
+        m = round(t / FIRST_RUN_BASE)
+    elif stats.get("plateau"):
+        lim, got = stats["plateau"], stats.get("mult") or 1
+        m = round(got) if got > 1 and abs(lim * got - t) <= 0.03 * t else round(t / lim)
+    else:
+        low = stats["low"]
+        weak = weak or low < MIN_BASE
+        m = next((k for k in range(MIN_MULT, top + 1) if t / k <= low), top)
+    m = max(MIN_MULT, min(top, int(m)))
+    return m, t, t / m < (WEAK_BASE if weak else MIN_BASE), cal
+
+
+def weak_gpu(name):
+    """Cartes d'entrée de gamme pour qui 30 images réelles sont acceptables (liste courte, à compléter par mesures)."""
+    return any(k in (name or "").upper() for k in ("RTX 2050", "RTX 2060"))
+
+
+def keys_of(text):
+    """{section: {clé}} lu dans un INI (pour le contrôle des clés autorisées)."""
+    out, sec = {}, None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith(";"):
+            continue
+        m = re.match(r"\[(.+)\]$", line)
+        if m:
+            sec = m.group(1)
+            out.setdefault(sec, set())
+        elif "=" in line:
+            out.setdefault(sec, set()).add(line.split("=", 1)[0].strip())
+    return out
+
+
+# Conseils d'analyse (écran Analyser) : profil DLSS SR que l'utilisateur règle dans le jeu.
 QUALITY = ["quality", "balanced", "performance", "ultra_performance"]
 QUALITY_FR = {"quality": "Qualité", "balanced": "Équilibré",
               "performance": "Performance", "ultra_performance": "Ultra Performance"}
@@ -57,13 +110,45 @@ def recommend_quality(fps_target):
 
 
 def default_cfg(fps_target=120):
-    return {"fps_target": fps_target, "multiplier": 4, "optimized": 2,
-            "preset": "Auto", "catmull": True, "sr_on": True,
-            "sync_type": "gsync", "vsync": False,
-            "dlss_quality": recommend_quality(fps_target)}
+    return {"fps_target": fps_target, "dlss_quality": recommend_quality(fps_target)}
 
 
-def fps_cap(fps_target, refresh):
-    """Cap conseillé = sous le refresh ET sous la cible, -3. Jamais < 30."""
-    base = min(fps_target, refresh) if refresh else fps_target
-    return max(30, base - 3)
+def _selftest():
+    def s(low, plateau=None, mult=3, seconds=180):
+        return {"low": low, "plateau": plateau, "mult": mult, "seconds": seconds}
+    # première fois (aucune mesure) : arrondi(T / 55) dans [3, plafond]
+    assert plan(180, True) == (3, 177, False, False)                   # 59 réelles
+    assert plan(240, True)[0] == 4 and plan(360, True)[0] == 6
+    assert plan(144, False)[:2] == (3, 144)                            # 48 réelles, jamais x2
+    assert plan(180, True, user_cap=120) == (3, 120, True, False)      # plafond du joueur respecté : 40 réelles, avertissement
+    assert plan(180, True, user_cap=200)[1] == 177                     # un plafond au-dessus de l'écran ne compte pas
+    assert plan(120, False)[0] == 3 and plan(60, False)[0] == 3
+    assert plan(180, True, s(65, seconds=30))[0] == 3                  # session trop courte : pas de calibrage
+    # limiteur du jeu L : arrondi(T / L)
+    assert plan(180, True, s(59, plateau=60.0, mult=4))[0] == 3
+    assert plan(180, True, s(29, plateau=30.0))[0] == 6
+    assert plan(180, True, s(44, plateau=45.0))[0] == 4
+    assert plan(180, True, s(58, plateau=59.0, mult=3))[0] == 3        # plateau = notre propre cap : on garde x3
+    # base mesurée : plus petit M dans [3, plafond] avec T / M <= base
+    assert plan(180, True, s(95)) == (3, 177, False, True)             # x2 suffirait, mais x3 minimum
+    assert plan(180, True, s(50)) == (4, 177, True, True)              # 44 réelles < 45 : appliqué + conseil
+    assert plan(240, True, s(48))[:3] == (5, 237, False)               # 47 réelles
+    assert plan(180, True, s(20)) == (6, 177, True, True)              # même x6 ne suffit pas : plafond + avertissement
+    assert plan(180, True, s(20), ceiling=4)[:3] == (4, 177, False)    # RE Requiem x4 : 44 cibles >= 30 (base faible)
+    assert plan(360, True, s(70))[0] == 6 and plan(360, True, s(70), ceiling=4)[0] == 4
+    assert plan(180, True, s(40))[2] is False                          # base 40 < 45 : carte faible, 30 acceptées
+    assert plan(180, True, s(46), weak=True)[2] is False               # RTX 2060 : 30 acceptées
+    assert plan(180, True, ceiling=2)[0] == 3                          # plafond prouvé x2 : on reste à x3
+    assert plan(0, True) == (3, None, False, False) and plan(500, False)[0] == 6
+    assert weak_gpu("NVIDIA GeForce RTX 2060 SUPER") and not weak_gpu("NVIDIA GeForce RTX 3070")
+    for m in (2, 3, 4, 5, 6):
+        txt = make(m)
+        ks = keys_of(txt)
+        assert ks == ALLOWED, ks
+        assert f"MaxGeneratedFrames={m - 1}\n" in txt and txt.startswith(MARK)
+        assert "Optimized=1\n" in txt and "Preset=A\n" in txt and "Auto" not in txt
+    print("inimaker selftest OK")
+
+
+if __name__ == "__main__":
+    _selftest()

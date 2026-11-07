@@ -190,3 +190,106 @@ def revert(npi_exe, out_dir):
     except (OSError, subprocess.SubprocessError) as ex:
         return False, f"Retour arrière échoué : {ex}"
     return True, "Profil NVIDIA global remis dans son état d'origine."
+
+
+# ---------- Profil global pour la Frame Generation (0.7.0) ----------
+# Règle 6 : le GLOBAL ne reçoit que le PLAFOND dynamique DLSS-G (5 = jusqu'à x6) et le VRR/G-SYNC plein écran ET
+# fenêtré ; jamais le nombre d'images IMPOSÉ (0x104D6667), qui forcerait ce multiplicateur sur tous les jeux.
+FG_LABELS = {nvcp.ID_MFG_DYN_MAX: "Override maximum DLSSG dynamic multi frame count",
+             nvcp.ID_VRR: "VRR requested state", nvcp.ID_GSYNC_GLOBAL: "Enable G-SYNC globally"}
+FG_CEILING = 5
+
+
+def _fg_path(out_dir):
+    return os.path.join(out_dir, "nvglobal_prev.json")
+
+
+def fg_global_changes(text, vrr):
+    """{SettingID: (libellé, valeur)} écrit dans le Base Profile. Les deux clés VRR ne sont écrites que si l'export du
+    pilote les nomme déjà ainsi (ID confirmé par le pilote lui-même, jamais deviné) ; sinon elles sont sautées."""
+    ch = {nvcp.ID_MFG_DYN_MAX: (FG_LABELS[nvcp.ID_MFG_DYN_MAX], FG_CEILING)}
+    if vrr:
+        for sid in (nvcp.ID_VRR, nvcp.ID_GSYNC_GLOBAL):
+            if nvcp._named(text, sid, FG_LABELS[sid]):
+                ch[sid] = (FG_LABELS[sid], 2)
+    return ch
+
+
+def apply_fg_global(npi_exe, out_dir, vrr):
+    """Plafond DLSS-G x6 (+ VRR plein écran/fenêtré si écran VRR) dans le Base Profile. Origine mémorisée une fois,
+    écriture relue. Retourne (ok, message) ; 'NEED_ADMIN' si pas élevé."""
+    if not npi_exe or not os.path.isfile(npi_exe):
+        return False, "nvidiaProfileInspector.exe introuvable."
+    if not nvcp.is_admin():
+        return False, "NEED_ADMIN : nvidiaProfileInspector exige les droits admin."
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        text = nvcp._export_text(npi_exe)
+        if not text:
+            return False, "Export NVIDIA vide, rien modifié."
+        try:
+            with open(_fg_path(out_dir), encoding="utf-8") as f:
+                prev = json.load(f)
+        except (OSError, ValueError):
+            prev = {}
+        if "originals" not in prev:               # l'origine n'est mémorisée qu'une fois (ré-optimiser ne l'écrase pas)
+            profile = nvcp._global_name(nvcp._parse_profiles_text(text))
+            prev = {"profile": profile, "originals": {str(s): nvcp._profile_dword(text, profile, s) for s in FG_LABELS}}
+            with open(_fg_path(out_dir), "w", encoding="utf-8") as f:     # AVANT l'import : origine toujours récupérable
+                json.dump(prev, f)
+        ch = fg_global_changes(text, vrr)
+        nip = os.path.join(out_dir, "yogomfg_fg_global.nip")
+        with open(nip, "w", encoding="utf-16") as f:
+            f.write(nvcp._wrap(nvcp._merge_xml(text, prev["profile"], None, ch)))
+        subprocess.run([npi_exe, "-silentImport", nip], timeout=30,
+                       cwd=os.path.dirname(npi_exe), creationflags=nvcp._NO_WINDOW)
+        after = nvcp._export_text(npi_exe)
+        bad = [FG_LABELS[s] for s, (_, v) in ch.items() if nvcp._profile_dword(after, prev["profile"], s) != v]
+    except (OSError, subprocess.SubprocessError) as ex:
+        return False, f"Profil global : {ex}"
+    if bad or not after:
+        return False, "Profil global NON vérifié : " + (", ".join(bad) or "relecture impossible")
+    skipped = vrr and len(ch) == 1
+    return True, ("Profil global : plafond DLSS-G x6" + (" + VRR plein écran/fenêtré" if len(ch) > 1 else "")
+                  + (" (VRR global non écrit : ID non confirmé par l'export du pilote)" if skipped else "") + ".")
+
+
+def revert_fg_global(npi_exe, out_dir):
+    """Remet les valeurs globales d'origine. Une clé absente à l'origine ne peut pas être supprimée par un .nip :
+    plafond DLSS-G -> valeur NVIDIA (4X), clés VRR -> laissées (signalé)."""
+    try:
+        with open(_fg_path(out_dir), encoding="utf-8") as f:
+            prev = json.load(f)
+    except (OSError, ValueError):
+        return False, "Aucun réglage global YogoMFG à annuler."
+    if not npi_exe or not os.path.isfile(npi_exe):
+        return False, "nvidiaProfileInspector.exe introuvable."
+    if not nvcp.is_admin():
+        return False, "NEED_ADMIN : nvidiaProfileInspector exige les droits admin."
+    try:
+        text = nvcp._export_text(npi_exe)
+        if not text:
+            return False, "Export des profils NVIDIA vide : rien modifié."
+        ch, left = {}, []
+        for s_, o in prev["originals"].items():
+            sid = int(s_)
+            if o is not None:
+                ch[sid] = (FG_LABELS[sid], o)
+            elif sid == nvcp.ID_MFG_DYN_MAX:
+                ch[sid] = (FG_LABELS[sid], nvcp.MFG_STOCK)
+            elif nvcp._profile_dword(text, prev["profile"], sid) is not None:
+                left.append(FG_LABELS[sid])
+        nip = os.path.join(out_dir, "yogomfg_fg_global_revert.nip")
+        with open(nip, "w", encoding="utf-16") as f:
+            f.write(nvcp._wrap(nvcp._merge_xml(text, prev["profile"], None, ch)))
+        subprocess.run([npi_exe, "-silentImport", nip], timeout=30,
+                       cwd=os.path.dirname(npi_exe), creationflags=nvcp._NO_WINDOW)
+        after = nvcp._export_text(npi_exe)
+        bad = [FG_LABELS[s] for s, (_, v) in ch.items() if nvcp._profile_dword(after, prev["profile"], s) != v]
+        if bad or not after:
+            return False, "Retour arrière global NON vérifié (sauvegarde conservée) : " + (", ".join(bad) or "relecture")
+        os.remove(_fg_path(out_dir))
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as ex:
+        return False, f"Retour arrière global échoué : {ex}"
+    return True, "Profil global remis comme avant" + (
+        f" (absent à l'origine, non supprimable : {', '.join(left)})." if left else ".")

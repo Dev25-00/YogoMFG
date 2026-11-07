@@ -210,9 +210,16 @@ def apply(npi_exe, out_dir, fps_cap, vrr_on, exe_name=None):
     if vrr_on:
         changes[ID_VRR] = ("VRR requested state", 2)
         changes[ID_GSYNC_GLOBAL] = ("Enable G-SYNC globally", 2)
-    prev = []     # valeurs d'avant, pour revert() : [nom, exe, {sid: ancienne valeur | None}]
+    # valeurs d'avant, pour revert() : [nom, exe, {sid: ancienne valeur | None}] ; une entrée déjà présente pour ce
+    # profil est GARDÉE (ré-optimiser ne doit pas mémoriser nos propres valeurs comme « origine »).
+    prev = _load_applied(out_dir)
     for n, e in targets:
-        prev.append([n, e, {str(sid): _profile_dword(btext, n, sid) for sid in changes}])
+        if not any(p[0] == n for p in prev):
+            prev.append([n, e, {str(sid): _profile_dword(btext, n, sid) for sid in changes}])
+        else:                                          # VRR ajouté après coup : son origine est mémorisée aussi
+            old = next(p for p in prev if p[0] == n)[2]
+            for sid in changes:
+                old.setdefault(str(sid), _profile_dword(btext, n, sid))
     try:
         with open(os.path.join(out_dir, "nvcp_applied.json"), "w", encoding="utf-8") as f:
             json.dump(prev, f)
@@ -236,25 +243,63 @@ def apply(npi_exe, out_dir, fps_cap, vrr_on, exe_name=None):
     return True, f"Max Frame Rate={fps_cap} écrit dans : {names}{extra}.{bk}"
 
 
-def revert(npi_exe, out_dir):
-    """Remet cap FPS / VRR / G-SYNC comme avant apply() (cap absent -> 0 = off), sans toucher au reste du profil."""
+def user_cap(npi_exe, out_dir, exe_name, written=None):
+    """FPS limit the PLAYER set for this game (NVIDIA app « Max Frame Rate » = Frame Rate Limiter), else None.
+
+    Current value of the game's profile (or of the global profile when the game has none), unless it is the value YogoMFG
+    wrote itself (`written`); then the value remembered from before YogoMFG's first write. Read-only (export)."""
+    if not npi_exe or not os.path.isfile(npi_exe):
+        return None
+    try:
+        text = _export_text(npi_exe)
+    except Exception:
+        return None
+    if not text:
+        return None
+    profiles = _parse_profiles_text(text)
+    game = _game_name(profiles, exe_name)
+    cur = _profile_dword(text, game, ID_FPS_LIMIT) if game else None
+    if not cur:
+        cur = _profile_dword(text, _global_name(profiles), ID_FPS_LIMIT)
+    if cur and cur != written:
+        return cur
+    origin = next((p[2].get(str(ID_FPS_LIMIT)) for p in _load_applied(out_dir) if p[0] == game), None)
+    return origin or None
+
+
+def _load_applied(out_dir):
+    try:
+        with open(os.path.join(out_dir, "nvcp_applied.json"), encoding="utf-8") as f:
+            prev = json.load(f)
+        return prev if isinstance(prev, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def revert(npi_exe, out_dir, exe_name=None):
+    """Remet cap FPS / VRR / G-SYNC comme avant apply() (cap absent -> 0 = off), sans toucher au reste du profil.
+
+    Avec `exe_name` : seulement le profil de ce jeu (les autres jeux optimisés gardent leurs réglages).
+    Vérifie par relecture ; la mémoire d'origine n'est effacée qu'après vérification.
+    """
     path = os.path.join(out_dir, "nvcp_applied.json")
-    if not os.path.isfile(path):
+    prev = _load_applied(out_dir)
+    e_low = (exe_name or "").lower()
+    mine = [p for p in prev if not e_low or (p[1] or "").lower() == e_low]
+    if not mine:
         return False, "Aucun revert enregistré (applique d'abord)."
     if not npi_exe or not os.path.isfile(npi_exe):
         return False, "nvidiaProfileInspector.exe introuvable."
     if not is_admin():
         return False, "NEED_ADMIN : nvidiaProfileInspector exige les droits admin."
     try:
-        with open(path, encoding="utf-8") as f:
-            prev = json.load(f)
         text = _export_text(npi_exe)
         if not text:
             return False, "Export des profils NVIDIA vide : rien modifié."
         labels = {ID_FPS_LIMIT: "Frame Rate Limiter", ID_FPS_NVCPL: "Frame Rate Limiter for NVCPL",
                   ID_VRR: "VRR requested state", ID_GSYNC_GLOBAL: "Enable G-SYNC globally"}
-        blocks = []
-        for n, e, old in prev:
+        blocks, expect = [], {}
+        for n, e, old in mine:
             ch = {}
             for sid_s, v in old.items():
                 sid = int(sid_s)
@@ -263,15 +308,28 @@ def revert(npi_exe, out_dir):
                 elif sid in (ID_FPS_LIMIT, ID_FPS_NVCPL):
                     ch[sid] = (labels[sid], 0)          # cap absent avant -> off
             blocks.append(_merge_xml(text, n, e, ch))
+            expect[n] = ch[ID_FPS_LIMIT][1] if ID_FPS_LIMIT in ch else None
         nip = os.path.join(out_dir, "yogomfg_revert.nip")
         with open(nip, "w", encoding="utf-16") as f:
             f.write(_wrap("".join(blocks)))
         subprocess.run([npi_exe, "-silentImport", nip], timeout=30,
                        cwd=os.path.dirname(npi_exe), creationflags=_NO_WINDOW)
-        os.remove(path)
+        after = _export_text(npi_exe)
+        if not after:
+            return False, "Relecture des profils NVIDIA impossible : retour arrière NON vérifié (mémoire conservée)."
+        for n, want in expect.items():
+            got = _profile_dword(after, n, ID_FPS_LIMIT)
+            if want is not None and not (got == want or (want == 0 and got is None)):
+                return False, f"Cap FPS NON remis dans « {n} » (relecture : {got}, attendu {want}) : mémoire conservée."
+        rest = [p for p in prev if p not in mine]
+        if rest:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(rest, f)
+        else:
+            os.remove(path)
     except (OSError, ValueError, subprocess.SubprocessError) as e:
         return False, f"Revert échoué: {e}"
-    return True, "Cap FPS / VRR / G-SYNC remis comme avant sur les profils modifiés."
+    return True, "Cap FPS / VRR / G-SYNC remis comme avant dans : " + ", ".join(p[0] for p in mine) + "."
 
 
 def _export_text(npi_exe):
@@ -471,3 +529,25 @@ def restore_mfg(npi_exe, out_dir, exe_name=None):
         return False, f"Restauration échouée: {ex}"
     return True, "Override pilote retiré, valeur d'origine remise" + (
         " (clé absente à l'origine : non supprimable, valeur héritée du profil global)." if absent else ".")
+
+
+def pending(out_dir, exe_name):
+    """True si YogoMFG garde un retour arrière NVIDIA pour ce jeu (cap/VRR ou multiplicateur). Lecture seule."""
+    e = (exe_name or "").lower()
+    if not e:
+        return False
+    if any((p[1] or "").lower() == e for p in _load_applied(out_dir)):
+        return True
+    try:
+        with open(os.path.join(out_dir, "mfg_prev.json"), encoding="utf-8") as f:
+            saved = json.load(f).get("profiles", {})
+    except (OSError, ValueError, AttributeError):
+        return False
+    return any(e in [g.lower() for g in o.get("games", [])] or (o.get("exe") or "").lower() == e
+               for o in saved.values() if isinstance(o, dict))
+
+
+def _named(text, sid, name):
+    """L'export du pilote contient-il ce SettingID sous ce nom ? (confirmation d'ID sans rien deviner)"""
+    return bool(re.search(r"<SettingNameInfo>\s*" + re.escape(name) + r"\s*</SettingNameInfo>\s*<SettingID>"
+                          + str(sid) + r"</SettingID>", text or "", re.I))

@@ -95,7 +95,7 @@ TIPS = {
 
 FT = {
     "nolog": "Kein Mod-Protokoll gefunden: Spiele eine Sitzung mit geladenem Mod.",
-    "none": "Keine Messung: „Sitzung messen“ (Erweitert) anhaken, anwenden, 2 Minuten spielen, dann hierher zurückkehren.",
+    "none": "Keine Messung: Spiel optimieren, 2 Minuten mit aktiver Frame Generation spielen, dann hierher zurückkehren.",
     "fps": "Echte Bilder: %s pro Sekunde. Angezeigt (x%d): etwa %s.",
     "gpu_full": "Deine Grafikkarte ist voll ausgelastet (%d %%). Sie ist die Grenze, kein FPS-Limit.",
     "gpu_low": "Deine Karte ist nicht voll ausgelastet (%d %%): Der Prozessor oder die Spiel-Engine bremst, nicht die Karte.",

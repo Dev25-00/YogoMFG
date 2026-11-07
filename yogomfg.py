@@ -28,10 +28,8 @@ if FROZEN:
 MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
-FPS_CHOICES = ["30", "60", "90", "120", "144", "165", "180", "240"]
-MULT = {"2X": 2, "3X": 3, "4X": 4, "5X": 5, "6X": 6}   # -> MaxGeneratedFrames 1/2/3/4/5 (plafond ; le jeu doit demander le multi)
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.6.2 beta"
+VERSION = "0.7.0 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -83,6 +81,8 @@ TR = {
   "install_dll": "Installer la dernière", "fg_yes": "✓ Frame Generation NVIDIA détecté dans ce jeu.",
   "fg_no": "? Frame Generation non détecté — vérifie sur le web.",
   "no_ups": "Aucun upscaler (DLSS/FSR/XeSS) trouvé dans ce jeu.",
+  "up_all": "Tout mettre à jour", "up_all_run": "Mise à jour de %d upscaler(s)… les boutons restent grisés jusqu'à la fin.",
+  "up_all_done": "%d sur %d upscaler(s) mis à jour.",
   "scan_ups": "Analyse des upscalers…",
   "q_hint": "YogoMFG ne force PAS ce réglage (il est interne au jeu). Applique-le toi dans les "
             "options du jeu. Recommandé selon ta cible FPS.",
@@ -148,6 +148,8 @@ TR = {
   "install_dll": "Install latest", "fg_yes": "✓ NVIDIA Frame Generation detected in this game.",
   "fg_no": "? Frame Generation not detected — check the web.",
   "no_ups": "No upscaler (DLSS/FSR/XeSS) found in this game.",
+  "up_all": "Update all", "up_all_run": "Updating %d upscaler(s)… buttons stay greyed until it is done.",
+  "up_all_done": "%d of %d upscaler(s) updated.",
   "scan_ups": "Scanning upscalers…",
   "q_hint": "YogoMFG does NOT force this (it is an in-game setting). Set it yourself in the game "
             "options. Recommended per FPS target.",
@@ -390,6 +392,88 @@ TR["fr"].update({
                   "Il existe grâce au travail de sdli1995 (le mod dlssg_for_sm86 / SM75), d'Orbmu2k (NVIDIA Profile Inspector) et de "
                   "beeradmoore (liste de DLL de DLSS Swapper). Développé avec Claude Code (Anthropic), via l'extension Visual Studio Code.",
 })
+TR["fr"].update({                           # 0.7.0 : un clic pour optimiser, un clic pour tout remettre
+    "optimize_game": "Optimiser ce jeu", "remove_restore": "Retirer et restaurer",
+    "mode_auto": "Recommandé", "mode_manual": "Manuel", "opt_update": "↻ Mettre à jour l'optimisation (x%d)",
+    "opt_all": "Optimiser tous les jeux", "rm_all": "Retirer de tous les jeux", "opt_all_go": "Optimiser tout",
+    "opt_all_hint": "%d jeux compatibles. Recommandé : YogoMFG calcule le meilleur multiplicateur pour chaque jeu. Manuel : le même plafond pour tous, puis tu choisis dans le menu de chaque jeu.",
+    "opt_all_cap": "En Manuel, un jeu qui plafonne plus bas (ex. Resident Evil Requiem à x4) reste à son maximum. Les jeux lancés ou protégés par un anti-cheat sont sautés.",
+    "busy_opt_all": "Optimisation de %d jeux en cours…", "busy_rm_all": "Restauration de %d jeux en cours…",
+    "skip_ac": "sauté : anti-cheat (%s)", "skip_busy": "sauté : jeu lancé ou autre mod présent",
+    "rm_all_ask": "Retirer YogoMFG de %d jeu(x) et remettre leurs fichiers et réglages NVIDIA d'origine ?", "cap_reset": "Jeu mis à jour (plugin DLSS-G %s → %s) : l'ancien plafond est oublié, x5 et x6 sont de nouveau proposés.", "mult_free": "Multiplicateur libre : choisis de x2 à x%d dans le menu du jeu (le pilote n'impose plus rien).", "opt_apply": "Appliquer x%d",
+    "vram_note": "VRAM : la génération d'images prend environ +0,5 Go en 1440p (+0,35 Go en 1080p), autant en x3 qu'en x6. Ce qui change avec le multiplicateur : moins d'images réelles, donc un peu plus de latence et d'artefacts possibles. Le plafond, G-Sync et le profil NVIDIA restent réglés automatiquement.",
+    "cap_kept": "Plafond FPS de ton profil NVIDIA respecté : %d images affichées au maximum.",
+    "opt_done": "✓ Déjà optimisé", "opt_better": "✨ Optimisation disponible (x%d)",
+    "better_log": "optimisation disponible : x%d → x%d d'après ta dernière partie.",
+    "after_opt_hint": "Joue 5 minutes avec la génération d'images activée : au prochain lancement, YogoMFG lira tes mesures et te proposera une meilleure optimisation si elle existe.",
+    "busy_opt": "Optimisation en cours…", "busy_rm": "Restauration du jeu d'origine…", "busy_cal": "Calibrage en cours…",
+    "busy_hint": "Ne ferme pas YogoMFG : ça prend quelques secondes.",
+    "tip_optimize": "Pose le mod Frame Generation, règle le profil NVIDIA de CE jeu et le plafond x6 du profil global. Tout est choisi pour une image "
+                    "propre : le plus petit multiplicateur (x3 à x6) qui remplit la fréquence de "
+                    "ton écran. Les fichiers d'origine sont sauvegardés avant.",
+    "tip_remove": "Retire tout ce que YogoMFG a posé dans ce jeu, remet les fichiers d'origine (vérifiés octet par "
+                  "octet) et annule les réglages NVIDIA de ce jeu. Sans Steam.",
+    "result": "x%d · %d images calculées → %d affichées", "result_plan": "Optimiser fera : %s",
+    "result_cal": "Calibré : x%d, %d images réelles → %d affichées",
+    "warn_soft": "image moins nette : baisser un réglage graphique dans le jeu (DLSS Équilibré, ombres)",
+    "hz_unknown": "fréquence de l'écran inconnue : x2, pas de cap FPS",
+    "opt_files": "Pose du mod (fichiers d'origine sauvegardés dans YogoMFG_backup)…",
+    "opt_nv": "Profil NVIDIA du jeu : cap %d FPS%s…", "opt_mult": "Profil NVIDIA du jeu : multiplicateur x%d…",
+    "need_admin_nv": "droits administrateur requis.",
+    "rc_global": "Profil global : plafond x6 (+ VRR)",
+    "gsync_hint": "Écran FreeSync ? Active une fois « G-SYNC Compatible » dans le Panneau de configuration NVIDIA → "
+                  "Affichage → Configurer G-SYNC. C'est un réglage de l'écran : YogoMFG ne peut ni le lire ni le changer.",
+    "rc_mod": "Mod x%d + INI", "rc_cap": "Cap FPS %d dans le profil du jeu", "rc_mult": "Multiplicateur x%d dans le profil du jeu",
+    "recap": "── Récapitulatif ──", "ok_v": "OK", "ko_v": "NON appliqué",
+    "done_hint": "Lance le jeu (bouton Launch), active la Frame Generation dans ses options graphiques, joue deux "
+                 "minutes, puis « Analyser ».",
+    "remove_ask2": "Retirer le mod de ce jeu, remettre ses fichiers d'origine (vérifiés) et annuler les réglages NVIDIA "
+                   "de ce jeu ?",
+    "rm_files_err": "Fichiers : %s", "rm_done": "✓ Jeu remis dans son état d'origine.",
+    "rm_need_admin": "Les réglages NVIDIA de ce jeu restent en place : relance YogoMFG en administrateur puis "
+                     "« Retirer et restaurer » à nouveau.",
+})
+TR["en"].update({
+    "optimize_game": "Optimize this game", "remove_restore": "Remove and restore",
+    "mode_auto": "Recommended", "mode_manual": "Manual", "opt_update": "↻ Update the optimization (x%d)",
+    "opt_all": "Optimize all games", "rm_all": "Remove from all games", "opt_all_go": "Optimize all",
+    "opt_all_hint": "%d compatible games. Recommended: YogoMFG works out the best multiplier for each game. Manual: the same ceiling for all, then you pick in each game's menu.",
+    "opt_all_cap": "In Manual, a game with a lower ceiling (e.g. Resident Evil Requiem at x4) stays at its maximum. Running games and games with anti-cheat are skipped.",
+    "busy_opt_all": "Optimizing %d games…", "busy_rm_all": "Restoring %d games…",
+    "skip_ac": "skipped: anti-cheat (%s)", "skip_busy": "skipped: game running or another mod present",
+    "rm_all_ask": "Remove YogoMFG from %d game(s) and restore their original files and NVIDIA settings?", "cap_reset": "Game updated (DLSS-G plugin %s → %s): the old ceiling is forgotten, x5 and x6 are offered again.", "mult_free": "Free multiplier: pick x2 to x%d in the game menu (the driver no longer forces anything).", "opt_apply": "Apply x%d",
+    "vram_note": "VRAM: frame generation takes about +0.5 GB at 1440p (+0.35 GB at 1080p), the same at x3 and x6. What changes with the multiplier: fewer real frames, so a little more latency and possible artefacts. The fps cap, G-Sync and the NVIDIA profile stay automatic.",
+    "cap_kept": "Your NVIDIA profile fps limit is kept: %d displayed frames at most.",
+    "opt_done": "✓ Already optimized", "opt_better": "✨ Optimization available (x%d)",
+    "better_log": "optimization available: x%d → x%d from your last session.",
+    "after_opt_hint": "Play 5 minutes with frame generation on: at the next start, YogoMFG reads your measurements and offers a better optimization if there is one.",
+    "busy_opt": "Optimizing…", "busy_rm": "Restoring the original game…", "busy_cal": "Calibrating…",
+    "busy_hint": "Do not close YogoMFG: it takes a few seconds.",
+    "tip_optimize": "Installs the Frame Generation mod, sets THIS game's NVIDIA profile and the global x6 ceiling. Everything is chosen for a "
+                    "clean image: the smallest multiplier (x3 to x6) that fills your screen's refresh rate. The "
+                    "original files are backed up first.",
+    "tip_remove": "Removes everything YogoMFG put in this game, puts the original files back (checked byte for byte) "
+                  "and undoes this game's NVIDIA settings. No Steam needed.",
+    "result": "x%d · %d rendered frames → %d displayed", "result_plan": "Optimize will set: %s",
+    "result_cal": "Calibrated: x%d, %d real frames → %d displayed",
+    "warn_soft": "less sharp image: lower a graphics setting in the game (DLSS Balanced, shadows)",
+    "hz_unknown": "screen refresh rate unknown: x2, no FPS cap",
+    "opt_files": "Installing the mod (original files backed up in YogoMFG_backup)…",
+    "opt_nv": "Game NVIDIA profile: %d FPS cap%s…", "opt_mult": "Game NVIDIA profile: x%d multiplier…",
+    "need_admin_nv": "administrator rights required.",
+    "rc_global": "Global profile: x6 ceiling (+ VRR)",
+    "gsync_hint": "FreeSync screen? Turn on \"G-SYNC Compatible\" once in NVIDIA Control Panel → Display → Set up "
+                  "G-SYNC. It is a screen setting: YogoMFG can neither read nor change it.",
+    "rc_mod": "Mod x%d + INI", "rc_cap": "%d FPS cap in the game profile", "rc_mult": "x%d multiplier in the game profile",
+    "recap": "── Summary ──", "ok_v": "OK", "ko_v": "NOT applied",
+    "done_hint": "Start the game (Launch button), turn Frame Generation on in its graphics options, play two minutes, "
+                 "then \"Analyze\".",
+    "remove_ask2": "Remove the mod from this game, put its original files back (checked) and undo this game's NVIDIA "
+                   "settings?",
+    "rm_files_err": "Files: %s", "rm_done": "✓ Game back to its original state.",
+    "rm_need_admin": "This game's NVIDIA settings are still in place: restart YogoMFG as administrator, then \"Remove "
+                     "and restore\" again.",
+})
 for _c in i18n.CODES:                       # langues supplémentaires : ce qui manque retombe sur l'anglais
     if _c not in ("fr", "en"):
         TR[_c] = {**TR["en"], **i18n.section("TR", _c)}
@@ -481,26 +565,18 @@ class App(ctk.CTk):
         self.lang = self.cfg.get("lang") if self.cfg.get("lang") in i18n.CODES else i18n.detect()
         self.hw, self.games, self.game = {}, [], None
         self.monitors, self.refresh = [], 0
-        self._applied = False
         self._busy = False
+        self._caps = {}             # exe -> plafond FPS réglé par le joueur (profil NVIDIA), respecté par le plan
+        self._better = set()        # jeux optimisés pour lesquels une session mesurée propose un meilleur multiplicateur
         self._mfg_cap = 4
         self._mfg_ver = None
-        self._force_ok = (False, None)
         self._anticheat = []
         self._clash = []
         self._cover_img = None
-        g = self.cfg["global"]
         self.exe = ctk.StringVar()
         self.proxy = ctk.StringVar(value=self.cfg.get("proxy", "version.dll"))
-        self.scope = ctk.StringVar(value="global")
-        self.fps = ctk.StringVar(value=str(g.get("fps_target", 120)))
-        self.mult = ctk.StringVar(value="4X")
-        self.preset = ctk.StringVar(value=g.get("preset", "Auto"))
-        self.quality = ctk.StringVar(value=g.get("dlss_quality", "balanced"))
-        self.sync_type = ctk.StringVar(value=g.get("sync_type", "gsync"))
-        self.do_nvcp = ctk.BooleanVar(value=True)
-        self.force_mfg = ctk.BooleanVar(value=False)
-        self.unlock_drs = ctk.BooleanVar(value=True)
+        self.quality = ctk.StringVar(value=self.cfg.get("global", {}).get("dlss_quality", "balanced"))   # analyse seulement
+        self._stats = {}            # .exe -> résumé de la dernière session mesurée (calibrage du multiplicateur)
         self._ups_cache = {}        # dossier du jeu -> (upscalers, manifeste) : affichage instantané au changement de jeu
         self._ups_sig = None
         self._up_busy = False       # boutons figés (install/restauration en cours ou confirmation affichée)
@@ -508,19 +584,13 @@ class App(ctk.CTk):
         self._up_tok = 0            # jeton d'opération : seul le rescan de la dernière opération libère _up_busy
         self._up_last = None        # dernier message inline (texte, couleur) du jeu courant
         self._up_game = None
-        self._nv_busy = False
-        self.frame_timing = ctk.BooleanVar(value=bool(g.get("frame_timing", False)))
-        self.ref_quality = ctk.BooleanVar(value=int(g.get("optimized", 2)) == 1)
         self._probe = None
-        self._fps_touched = False                 # tant que l'utilisateur ne choisit pas : cible FPS = fréquence de l'écran
         self._scanned = False
         self.vrr = None                           # (min, max, nom) de l'écran si G-Sync/FreeSync, sinon None
         self._closing = False
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._thumbs, self._cards, self._grid_gen = {}, {}, 0
         self._cover_pool = ThreadPoolExecutor(max_workers=4)
-        self.mon_var = ctk.StringVar()
-        self.hz_var = ctk.StringVar()
         self.goal = ctk.StringVar(value="fps")
         npi = self.cfg.get("npi_exe", "")
         if not (npi and os.path.isfile(npi)):          # chemin périmé (le dossier temporaire du .exe change à chaque lancement)
@@ -592,16 +662,12 @@ class App(ctk.CTk):
         self._b_soft = ctk.CTkButton(top, text="⚙ " + self.L("soft_opts"), height=36, font=FONT_B, fg_color=SURF2,
                                      hover_color=GREEN_D, command=self._open_soft_opts)
         self._b_soft.pack(side="right", padx=8)
-        self._b_nv = ctk.CTkButton(top, text="⚡ " + self.L("nv_btn"), height=36, font=FONT_B, fg_color=GREEN_D,
-                                   text_color=BG, hover_color=GREEN, command=self._open_nvidia_tune)
-        self._b_nv.pack(side="right", padx=8)
 
     def _relabel_banner(self):
         """Retraduit la bannière (le changement de langue ne reconstruisait que la page)."""
         self._b_sub.configure(text=self.L("sub"))
         self._b_support.configure(text=self.L("support"))
         self._b_soft.configure(text="⚙ " + self.L("soft_opts"))
-        self._b_nv.configure(text="⚡ " + self.L("nv_btn"))
 
     def _flag(self, code):
         if code not in self._flags:
@@ -630,6 +696,8 @@ class App(ctk.CTk):
         self._lang_pop = pop
 
     def _set_lang(self, code):
+        if self._busy:                                   # rebuilding the page mid-optimisation would drop the loading screen
+            return
         pop = getattr(self, "_lang_pop", None)
         if pop is not None and pop.winfo_exists():
             pop.destroy()
@@ -696,9 +764,10 @@ class App(ctk.CTk):
         self.pc_strip.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 6))
         self._fill_pc_strip()
         if not self.hw:
-            self._async(self._load_hw, lambda r, e: (self._fill_pc_strip(), self._sync_from_screen()))
+            self._async(self._load_hw, lambda r, e: (self._fill_pc_strip(), self._refresh_status(), self._auto_calibrate()))
         # colonne jeux (gauche) + panneau du jeu (droite)
         mid = ctk.CTkFrame(self.body, fg_color="transparent"); mid.grid(row=1, column=0, sticky="nsew", padx=12, pady=4)
+        self._mid = mid                                            # couvert par l'écran de chargement (_set_busy)
         mid.grid_rowconfigure(0, weight=1)
         mid.grid_columnconfigure(0, weight=1, uniform="moitie")   # moitié-moitié, quelle que soit la taille d'écran
         mid.grid_columnconfigure(1, weight=1, uniform="moitie")
@@ -709,6 +778,11 @@ class App(ctk.CTk):
                       command=self._add_library).pack(side="left", expand=True, fill="x", padx=(0, 4))
         ctk.CTkButton(gbar, text="➕ " + self.L("import_game"), font=FONT, fg_color=SURF2, hover_color=GREEN_D,
                       command=self._manual).pack(side="left", expand=True, fill="x", padx=(4, 0))
+        gall = ctk.CTkFrame(leftcol, fg_color="transparent"); gall.pack(fill="x", pady=(0, 6))
+        ctk.CTkButton(gall, text="⚡ " + self.L("opt_all"), font=FONT_B, fg_color=GREEN_D, hover_color=GREEN, text_color=BG,
+                      command=self._open_opt_all).pack(side="left", expand=True, fill="x", padx=(0, 4))
+        ctk.CTkButton(gall, text="↩ " + self.L("rm_all"), font=FONT_B, fg_color="#5a2020", hover_color="#7a3030",
+                      command=self._remove_all).pack(side="left", expand=True, fill="x", padx=(4, 0))
         self._games_left = ctk.CTkScrollableFrame(leftcol, fg_color=SURF, corner_radius=12)
         self._games_left.pack(fill="both", expand=True)
         self.right = ctk.CTkScrollableFrame(mid, fg_color=SURF, corner_radius=12)
@@ -730,15 +804,11 @@ class App(ctk.CTk):
         if self.game:
             self._set_game(self.game, silent=True, keep_exe=True)
 
-    def _sync_from_screen(self):
-        """Choix G-Sync/FreeSync par défaut d'après l'écran réellement détecté (modifiable dans Avancé)."""
-        if self.vrr and self.sync_type.get() == "none":
-            self.sync_type.set("gsync")           # on n'impose jamais « none » : une détection ratée ne doit rien casser
-
     def _load_hw(self):
         self.hw = hardware.summary()
         self.monitors = display.monitors()
-        self.refresh = hardware.refresh_hz()
+        # écran du jeu inconnu : l'écran le plus rapide branché (repli : premier contrôleur vidéo vu par WMI)
+        self.refresh = max((m["hz"] for m in self.monitors if m["hz"] > 1), default=0) or hardware.refresh_hz()
         try:
             self.vrr = display.vrr_for(self.refresh)
         except Exception:
@@ -760,6 +830,55 @@ class App(ctk.CTk):
         if h.get("warn"):
             ctk.CTkLabel(self.pc_strip, text="⚠ " + h["warn"], font=FONT, text_color="#f0b63a").pack(side="right", padx=12)
 
+    def _set_busy(self, on, text=None):
+        """Optimiser / Retirer / calibrage en cours : un écran couvre la liste des jeux et la fiche (spinner + message),
+        rien d'autre n'est cliquable ; la console du bas reste visible pour suivre la progression."""
+        self._busy = on
+        old = getattr(self, "_cover", None)
+        self._cover = None
+        if old is not None and old.winfo_exists():
+            old.destroy()
+        mid = getattr(self, "_mid", None)
+        if not on or not mid or not mid.winfo_exists():
+            if not on:
+                self._thumbs.pop((self.game or {}).get("dir"), None)   # la jaquette reprend ou perd son bandeau
+                self._refresh_games()
+                self._refresh_status()
+            return
+        cover = ctk.CTkFrame(mid, fg_color=BG, corner_radius=12)
+        cover.place(relx=0, rely=0, relwidth=1, relheight=1)
+        box = ctk.CTkFrame(cover, fg_color="transparent"); box.place(relx=0.5, rely=0.5, anchor="center")
+        spin = ctk.CTkLabel(box, text="◐", font=("Segoe UI", 72, "bold"), text_color=GREEN); spin.pack()
+        ctk.CTkLabel(box, text=text or "", font=FONT_H, text_color=TXT).pack(pady=(10, 2))
+        ctk.CTkLabel(box, text=self.L("busy_hint"), font=FONT, text_color=DIM).pack()
+        self._cover = cover
+
+        def tick(i=0):
+            if self._cover is cover and spin.winfo_exists():
+                spin.configure(text="◐◓◑◒"[i % 4])
+                self.after(140, tick, i + 1)
+        tick()
+
+    def _badge(self, im, g):
+        """Bandeau en bas d'une jaquette : vert « ✓ YOGOMFG » (optimisé) ou ambre « ✨ OPTI DISPO » (meilleur réglage mesuré)."""
+        if not self._optimized(g):
+            return im
+        better = g.get("appid") in self._better
+        im = im.copy()
+        dr = ImageDraw.Draw(im)
+        w, h = im.size
+        bh = max(28, h // 8)
+        dr.rectangle((0, h - bh, w, h), fill=(240, 182, 58) if better else (182, 255, 74))
+        try:
+            font = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", int(bh * (0.48 if better else 0.55)))
+        except OSError:
+            font = ImageFont.load_default()
+        dr.text((w // 2, h - bh // 2), "✨ OPTI DISPO" if better else "✓ YOGOMFG", font=font, fill=(11, 11, 13), anchor="mm")
+        return im
+
+    def _optimized(self, g):
+        return bool(g) and g.get("appid") in self.cfg.get("installed_exe", {})
+
     def _refresh_games(self):
         gl = getattr(self, "_games_left", None)
         if not gl or not gl.winfo_exists():
@@ -773,37 +892,200 @@ class App(ctk.CTk):
             return
         if not (self.game and self.exe.get()):
             return messagebox.showwarning("YogoMFG", self.L("need_game"))
-        if not messagebox.askyesno("YogoMFG", self.L("remove_ask")):
+        if not messagebox.askyesno("YogoMFG", self.L("remove_ask2"), parent=self):
             return
         exe = self.exe.get()                                   # snapshot (pas de .get() dans le thread)
         proxy = self.cfg.get("applied", {}).get(self.game["appid"]) or self.proxy.get()
-        self._busy = True
+        appid = self.game["appid"]
+        last = not [a for a in self.cfg.get("installed_exe", {}) if a != appid]
+        self._set_busy(True, self.L("busy_rm"))
+        self.log.delete("1.0", "end")
         self.prog.set(0.2); self._log("⏳ " + self.L("removing"))
         npi = self.npi.get()
+
         def work():
-            r = installer.uninstall(exe, proxy)
-            ok, msg = nvcp.restore_mfg(npi, DATA, os.path.basename(exe))   # retire aussi l'override pilote de ce jeu
-            return r, ok, msg
+            try:
+                files, ferr = installer.uninstall(exe, proxy), None
+            except Exception as ex:                            # fichier verrouillé ou restauration non vérifiée
+                files, ferr = [], str(ex)
+            base = os.path.basename(exe)
+            # profil NVIDIA du jeu : cap/VRR puis multiplicateur, chacun relu (rien à faire = message « Aucun … »)
+            nv = [nvcp.revert(npi, DATA, base), nvcp.restore_mfg(npi, DATA, base)]
+            if last and not ferr:          # plus aucun jeu optimisé : le profil global reprend ses valeurs d'origine
+                nv.append(nvpreset.revert_fg_global(npi, DATA))
+            return files, ferr, nv
+
         def done(res, e):
-            self._busy = False
             self.prog.set(1.0)
             if e:
                 self._log("✗ " + str(e))
+                return self._set_busy(False)
+            files, ferr, nv = res
+            if ferr:
+                self._log("✗ " + self.L("rm_files_err") % ferr)
             else:
-                r, ok, msg = res
-                self._log("✓ " + ", ".join(r))
-                if self.game:
-                    self.cfg.get("applied", {}).pop(self.game["appid"], None)
-                    config.save(self.cfg)
+                for f in files:
+                    self._log("  ✓ " + f)
+                self.cfg.get("applied", {}).pop(appid, None)
+                self.cfg.get("installed_exe", {}).pop(appid, None)
+                self.cfg.get("cap_written", {}).pop(appid, None)
+                self._better.discard(appid)
+                config.save(self.cfg)
+            need_admin = False
+            for ok, msg in nv:
                 if ok:
                     self._log("✓ " + msg)
                 elif msg.startswith("NEED_ADMIN"):
-                    self._log("✗ Le multiplicateur reste imposé dans le profil NVIDIA de ce jeu : relance YogoMFG en admin puis Retirer à nouveau.")
-                    self._ask_admin()
-                elif not msg.startswith("Aucun override"):
+                    need_admin = True
+                elif not msg.startswith("Aucun"):
                     self._log("✗ " + msg)
-            self._refresh_status()
+            if need_admin:
+                self._log("✗ " + self.L("rm_need_admin"))
+                self._ask_admin()
+            elif not ferr:
+                self._log(self.L("rm_done"))
+            self._set_busy(False)                       # after the config update: the cover loses its YOGOMFG ribbon
         self._async(work, done)
+
+    def _open_opt_all(self):
+        """« Optimiser tous les jeux » : choix Recommandé (calcul par jeu) ou Manuel (x3..x6 pour tous), puis tout est fait."""
+        if self._busy or not self.games:
+            return
+        body, bar = self._overlay(self.L("opt_all"))
+        ctk.CTkLabel(body, text=self.L("opt_all_hint") % len(self.games), font=FONT, text_color=TXT, wraplength=620,
+                     justify="left").pack(anchor="w", padx=14, pady=(12, 8))
+        mode = ctk.CTkSegmentedButton(body, values=[self.L("mode_auto"), self.L("mode_manual")], font=FONT_B,
+                                      selected_color=GREEN_D, selected_hover_color=GREEN)
+        mode.set(self.L("mode_auto"))
+        mode.pack(anchor="w", fill="x", padx=14, pady=4)
+        mult = ctk.CTkSegmentedButton(body, values=["x3", "x4", "x5", "x6"], font=FONT_B, selected_color=GREEN_D,
+                                      selected_hover_color=GREEN)
+        mult.set("x4")
+        mult.pack(anchor="w", fill="x", padx=14, pady=4)
+        ctk.CTkLabel(body, text=self.L("opt_all_cap"), font=FONT, text_color=DIM, wraplength=620,
+                     justify="left").pack(anchor="w", padx=14, pady=(4, 8))
+        ctk.CTkButton(bar, text=self.L("close"), font=FONT_B, width=140, fg_color=SURF2, hover_color=EDGE,
+                      command=self._close_overlay).pack(side="right")
+        ctk.CTkButton(bar, text="⚡ " + self.L("opt_all_go"), font=FONT_B, fg_color=GREEN, hover_color=GREEN_D, text_color=BG,
+                      command=lambda: self._opt_all(None if mode.get() == self.L("mode_auto") else int(mult.get().lstrip("x")))
+                      ).pack(side="left")
+
+    def _opt_all(self, manual):
+        """Optimise chaque jeu listé, l'un après l'autre (même chemin que le bouton d'un jeu) ; saute un jeu lancé ou à anti-cheat."""
+        self._close_overlay()
+        games = [g for g in self.games if g.get("exes")]
+        mm = self.cfg.setdefault("manual_mult", {})
+        for g in games:
+            if manual:
+                mm[g["appid"]] = manual
+            else:
+                mm.pop(g["appid"], None)
+        config.save(self.cfg)
+        self._set_busy(True, self.L("busy_opt_all") % len(games))
+        self.log.delete("1.0", "end")
+        self.prog.set(0.02)
+        npi, vrr = self.npi.get(), bool(self.vrr)
+        written = dict(self.cfg.get("cap_written", {}))
+        applied = dict(self.cfg.get("applied", {}))
+
+        def worker():
+            out = []
+            for i, g in enumerate(games):
+                exe, appid, name = g["exes"][0], g["appid"], g["name"]
+                try:
+                    info = fgdetect.scan(g["dir"])
+                    if info.get("anticheat"):
+                        out.append((name, None, self.L("skip_ac") % ", ".join(info["anticheat"])))
+                        continue
+                    ok, code, _ = installer.check_apply(MOD_ROOT, exe, "version.dll", applied.get(appid))
+                    if not ok:
+                        out.append((name, None, self.L("skip_busy") + f" ({code})"))
+                        continue
+                    stats = loganalyze.session_stats(exe)
+                    self._stats[exe] = stats
+                    self._caps[exe] = nvcp.user_cap(npi, DATA, os.path.basename(exe), written.get(appid))
+                    p = self._plan(appid, stats, exe)
+                    self.after(0, lambda i=i, n=name: (self.prog.set((i + 0.5) / len(games)), self._log(f"⏳ {n} …")))
+                    res, need_admin = self._write_game(exe, "version.dll", p[0], p[1], vrr, npi, lambda f, line: None,
+                                                       bool(manual))
+                    good = bool(res) and all(r for _, r in res)
+                    out.append((name, good, self._result_text(p).partition(chr(10))[0]))
+                    if good:
+                        out_cfg.append((appid, exe, p[0], p[1]))
+                    if need_admin:
+                        out.append((self.L("need_admin_nv"), False, ""))
+                        break
+                except Exception as e:                   # un jeu en échec ne bloque pas les autres
+                    out.append((name, False, str(e)))
+            return out
+
+        out_cfg = []
+
+        def done(out, e):
+            for appid, exe, mult, cap in out_cfg:        # config modifiée dans le thread UI seulement
+                self.cfg.setdefault("applied", {})[appid] = "version.dll"
+                self.cfg.setdefault("installed_exe", {})[appid] = exe
+                self.cfg.setdefault("mult_by_game", {})[appid] = mult
+                self.cfg.setdefault("cap_written", {})[appid] = cap
+                self._better.discard(appid)
+            config.save(self.cfg)
+            for name, ok, msg in out or []:
+                self._log(("  ✓ " if ok else "  ⏭ " if ok is None else "  ✗ ") + name + (" — " + msg if msg else ""))
+            if e:
+                self._log("✗ " + str(e))
+            self.prog.set(1.0)
+            self._log(chr(10) + "💡 " + self.L("after_opt_hint"))
+            self._thumbs.clear()
+            self._set_busy(False)
+        self._async(worker, done)
+
+    def _remove_all(self):
+        """« Retirer de tous les jeux » : chaque jeu YogoMFG retrouve ses fichiers et son profil NVIDIA, puis le global."""
+        games = {a: e for a, e in self.cfg.get("installed_exe", {}).items() if e}
+        if self._busy or not games:
+            return
+        if not messagebox.askyesno("YogoMFG", self.L("rm_all_ask") % len(games), parent=self):
+            return
+        self._set_busy(True, self.L("busy_rm_all") % len(games))
+        self.log.delete("1.0", "end")
+        self.prog.set(0.05)
+        npi, applied = self.npi.get(), dict(self.cfg.get("applied", {}))
+
+        def worker():
+            out, ok_ids = [], []
+            for appid, exe in games.items():
+                name = os.path.basename(os.path.dirname(exe))
+                try:
+                    files = installer.uninstall(exe, applied.get(appid) or "version.dll") if os.path.isfile(exe) else []
+                    base = os.path.basename(exe)
+                    nvcp.revert(npi, DATA, base)
+                    nvcp.restore_mfg(npi, DATA, base)
+                    out.append((name, True, files))
+                    ok_ids.append(appid)
+                except Exception as e:                   # fichier verrouillé (jeu lancé) : ce jeu reste installé
+                    out.append((name, False, [str(e)]))
+            if len(ok_ids) == len(games):                # plus aucun jeu optimisé : le global reprend ses valeurs d'origine
+                ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
+                out.append(("NVIDIA (profil global)", ok, [msg]))
+            return out, ok_ids
+
+        def done(res, e):
+            out, ok_ids = res or ([], [])
+            for name, ok, files in out:
+                self._log(("✓ " if ok else "✗ ") + name)
+                for f in files:
+                    self._log("    " + f)
+            for a in ok_ids:
+                for k in ("applied", "installed_exe", "cap_written", "manual_mult"):
+                    self.cfg.get(k, {}).pop(a, None)
+                self._better.discard(a)
+            config.save(self.cfg)
+            if e:
+                self._log("✗ " + str(e))
+            self.prog.set(1.0)
+            self._thumbs.clear()
+            self._set_busy(False)
+        self._async(worker, done)
 
     def _launch(self):
         exe = self.exe.get()
@@ -820,13 +1102,12 @@ class App(ctk.CTk):
                     os.startfile(exe)
         except Exception as e:
             messagebox.showerror("YogoMFG", str(e))
-        else:
-            if self.frame_timing.get():            # « Mesurer la session » : la sonde GPU/CPU tourne pendant que tu joues
-                if self._probe:
-                    self._probe.stop()
-                self._probe = probe.Probe()
-                self._probe.start()
-                self._log("● " + self.L("probe_on"))
+        else:                                      # la sonde GPU/CPU tourne pendant que tu joues (lue par Analyser)
+            if self._probe:
+                self._probe.stop()
+            self._probe = probe.Probe()
+            self._probe.start()
+            self._log("● " + self.L("probe_on"))
 
     COLS = 3
 
@@ -867,6 +1148,9 @@ class App(ctk.CTk):
         for g in extra:
             if os.path.normcase(g["dir"]) not in seen:
                 out.append(g); seen.add(os.path.normcase(g["dir"]))
+        # only games that ship DLSS Frame Generation; a game YogoMFG already touched stays listed so it can be removed
+        keep = set(self.cfg.get("installed_exe", {})) | set(self.cfg.get("applied", {}))
+        out = [g for g in out if g.get("appid") in keep or fgdetect.fg_capable(g["dir"])]
         out.sort(key=lambda g: g["name"].lower())
         return out
 
@@ -904,7 +1188,7 @@ class App(ctk.CTk):
     def _thumb(self, g):
         key = g["dir"]
         if key not in self._thumbs:
-            self._thumbs[key] = ctk.CTkImage(self._placeholder(g["name"]), size=(120, 180))
+            self._thumbs[key] = ctk.CTkImage(self._badge(self._placeholder(g["name"]), g), size=(120, 180))
         return self._thumbs[key]
 
     def _fill_games(self, parent):
@@ -944,7 +1228,7 @@ class App(ctk.CTk):
                 return None
             im = Image.open(p).convert("RGB")
             im.thumbnail((240, 360))
-            return im
+            return self._badge(im, g)
 
         def apply(fut):
             try:
@@ -988,27 +1272,30 @@ class App(ctk.CTk):
         self.cmb.pack(anchor="w", fill="x")
         ctk.CTkButton(r, text=self.L("change_exe"), font=FONT, fg_color=SURF2,
                       hover_color=GREEN_D, command=self._pick_exe).pack(anchor="w", pady=(6, 0))
-        ctk.CTkButton(r, text="⚙ " + self.L("open_opts"), font=FONT_B, height=38, fg_color=GREEN,
-                      hover_color=GREEN_D, text_color=BG, command=self._open_options).pack(anchor="w", fill="x", pady=(10, 2))
-        actions = ctk.CTkFrame(r, fg_color="transparent"); actions.pack(anchor="w", fill="x", pady=(4, 0))
-        ctk.CTkButton(actions, text="▶ " + self.L("launch"), font=FONT_B, fg_color=SURF2, hover_color=GREEN_D,
-                      command=self._launch).pack(side="left", expand=True, fill="x", padx=(0, 4))
-        ctk.CTkButton(actions, text="📊 " + self.L("analyser"), font=FONT_B, fg_color=SURF2, hover_color=GREEN_D,
-                      command=self._open_analyze).pack(side="left", expand=True, fill="x", padx=4)
-        qk = ctk.CTkFrame(r, fg_color="transparent"); qk.pack(anchor="w", fill="x", pady=(8, 0))
-        ctk.CTkLabel(qk, text=self.L("quick_lbl"), font=FONT, text_color=DIM).pack(side="left", padx=(0, 10))
-        self.quick_var = ctk.StringVar(value="4X")
-        self.seg_quick = ctk.CTkSegmentedButton(qk, values=list(MULT), variable=self.quick_var, font=FONT_B,
-                                                selected_color="#3f7a1a", selected_hover_color="#4f8a1e",
-                                                unselected_color=EDGE, unselected_hover_color=SURF, text_color=TXT,
-                                                command=self._quick_mult, state="disabled")
-        self.seg_quick.pack(side="left")
-        self.lbl_quick = ctk.CTkLabel(r, text="", font=FONT, text_color=GREEN, anchor="w", wraplength=520, justify="left")
-        self.lbl_quick.pack(anchor="w", fill="x", pady=(2, 0))
-        self.btn_remove = ctk.CTkButton(actions, text="🗑 " + self.L("remove"), font=FONT_B, fg_color=SURF2,
+        # mode : Recommandé (calcul automatique) ou Manuel (le joueur choisit x3..x6) ; le reste est toujours automatique
+        self.seg_mode = ctk.CTkSegmentedButton(r, values=[self.L("mode_auto"), self.L("mode_manual")], font=FONT_B,
+                                               selected_color=GREEN_D, selected_hover_color=GREEN, command=self._on_mode)
+        self.seg_mode.pack(anchor="w", fill="x", pady=(14, 4))
+        self.seg_mult = ctk.CTkSegmentedButton(r, values=["x3", "x4", "x5", "x6"], font=FONT_B, selected_color=GREEN_D,
+                                               selected_hover_color=GREEN, command=self._on_manual_mult)
+        self.lbl_vram = ctk.CTkLabel(r, text="", font=FONT, text_color=DIM, anchor="w", justify="left", wraplength=520)
+        # un clic : tout est décidé automatiquement (multiplicateur, cap FPS, VRR) ; un clic pour tout remettre
+        self.btn_opt = ctk.CTkButton(r, text=self.L("optimize_game"), font=FONT_H, height=64, fg_color=GREEN,
+                                     hover_color=GREEN_D, text_color=BG, command=self.do_apply)
+        self.btn_opt.pack(anchor="w", fill="x", pady=(14, 6))
+        Tooltip(self.btn_opt, self.L("tip_optimize"))
+        self.btn_remove = ctk.CTkButton(r, text=self.L("remove_restore"), font=FONT_H, height=56, fg_color=SURF2,
                                         hover_color="#7a3030", text_color_disabled=DIM, state="disabled",
                                         command=self._remove)
-        self.btn_remove.pack(side="left", expand=True, fill="x", padx=(4, 0))
+        self.btn_remove.pack(anchor="w", fill="x", pady=(0, 6))
+        Tooltip(self.btn_remove, self.L("tip_remove"))
+        self.lbl_result = ctk.CTkLabel(r, text="", font=FONT_B, text_color=GREEN, anchor="w", wraplength=520,
+                                       justify="left")
+        self.lbl_result.pack(anchor="w", fill="x", pady=(0, 6))
+        actions = ctk.CTkFrame(r, fg_color="transparent"); actions.pack(anchor="w", fill="x", pady=(4, 0))
+        ctk.CTkButton(actions, text="▶ " + self.L("launch"), font=FONT_B, fg_color=SURF2, hover_color=GREEN_D,
+                      command=self._launch).pack(side="left", expand=True, fill="x")
+        # no Analyser screen any more: the session is analysed automatically at the next Optimiser click / start (calibration)
         if getattr(self, "_exe_trace", None):
             self.exe.trace_remove("write", self._exe_trace)    # _pick_right est rappelé à chaque rebuild (langue)
         self._exe_trace = self.exe.trace_add("write", lambda *_: self._refresh_status())
@@ -1046,33 +1333,95 @@ class App(ctk.CTk):
         exe = self.exe.get()
         st = installer.status(exe, self.cfg.get("applied", {}).get((self.game or {}).get("appid"))) if exe else None
         on = bool(st and st["installed"])
-        mem = self.cfg.get("mult_by_game", {}).get((self.game or {}).get("appid"))
         if on:
-            shown = mem or st["mult"]
-            if shown:
-                self.quick_var.set(f"{shown}X")
-            bits = ([f"x{shown}"] if shown else []) + ([st["proxy"]] if st["proxy"] else []) \
+            bits = ([f"x{st['mult']}"] if st["mult"] else []) + ([st["proxy"]] if st["proxy"] else []) \
                 + ([self.L("inst_bak") % len(st["backups"])] if st["backups"] else [])
             self._fade_text(self.lbl_inst, self.L("inst_yes") % " · ".join(bits), GREEN)
         else:
             self._fade_text(self.lbl_inst, self.L("inst_no"), DIM)
-        self.btn_remove.configure(state="normal" if on else "disabled",
-                                  fg_color="#5a2020" if on else SURF2)
-        self.seg_quick.configure(state="normal" if on else "disabled")
+        # Retirer reste possible tant qu'un réglage NVIDIA de ce jeu est à annuler (ex. fichiers retirés sans admin)
+        rm = on or bool(exe and nvcp.pending(DATA, os.path.basename(exe)))
+        self.btn_remove.configure(state="normal" if rm else "disabled", fg_color="#5a2020" if rm else SURF2)
+        self._sync_mode()
+        p = self._plan()
+        txt = self._result_text(p)
+        cur = bool(on and installer.up_to_date(MOD_ROOT, exe, inimaker.make(st["mult"] or p[0]), st["proxy"] or "version.dll"))
+        done = bool(exe and on and cur and st["mult"] == p[0])   # installé, à jour, au bon multiplicateur : rien à refaire
+        stale = bool(exe and on and not cur)                  # YogoMFG a été mis à jour depuis : réappliquer
+        better = bool(exe and on and not done and not stale)  # une session mesurée propose un autre multiplicateur
+        self.btn_opt.configure(text=self.L("opt_done") if done else (self.L("opt_update") % p[0]) if stale else ((self.L("opt_apply") if self.cfg.get("manual_mult", {}).get((self.game or {}).get("appid"))
+                                                       else self.L("opt_better")) % p[0] if better else self.L("optimize_game")),
+                               state="disabled" if (done or self._busy) else "normal",
+                               fg_color=SURF2 if done else ("#f0b63a" if better else GREEN), text_color_disabled=GREEN if done else DIM)
+        if not exe:
+            self.lbl_result.configure(text="")
+        elif on and st["mult"] == p[0]:
+            self._fade_text(self.lbl_result, "✓ " + txt, "#f0b63a" if p[2] else GREEN)
+        else:
+            self._fade_text(self.lbl_result, self.L("result_plan") % txt, DIM)
 
-    def _mult_max(self):
-        """Plafond réel du jeu : celui de son plugin DLSS-G, sauf plugin patchable (forçage possible)."""
-        appid = (self.game or {}).get("appid")       # plafond PROUVÉ par une session mesurée ; la version du plugin ne prouve rien
+    def _mult_max(self, appid=None):
+        """Plafond PROUVÉ du jeu (session mesurée), sinon celui du mod (x6) ; la version du plugin ne prouve rien."""
+        appid = appid or (self.game or {}).get("appid")
         return max(2, min(6, self.cfg.get("proven_cap", {}).get(appid, 6)))
 
-    def _lock_mult(self, seg):
-        """Grise les multiplicateurs que le jeu ne peut pas afficher. Les boutons internes de CTk : sans l'API publique."""
-        top = self._mult_max()
-        for val, btn in getattr(seg, "_buttons_dict", {}).items():
-            try:
-                btn.configure(state="disabled" if MULT[val] > top else "normal")
-            except Exception:
-                pass
+    def _plan(self, appid=None, stats=False, exe=None):
+        """(multiplicateur, cible T, avertissement, calibré) : écran + dernière session mesurée (voir inimaker.plan)."""
+        exe = exe or self.exe.get()
+        if stats is False:
+            stats = self._stats.get(exe)
+        weak = inimaker.weak_gpu((self.hw or {}).get("name"))
+        p = inimaker.plan(self.refresh, bool(self.vrr), stats, self._mult_max(appid), weak, self._caps.get(exe))
+        man = self.cfg.get("manual_mult", {}).get(appid or (self.game or {}).get("appid"))
+        if man and p[1]:                                  # Manuel : le choix du joueur, borné au plafond prouvé du jeu
+            m = max(inimaker.MIN_MULT, min(self._mult_max(appid), int(man)))
+            p = (m, p[1], p[1] / m < (inimaker.WEAK_BASE if weak else inimaker.MIN_BASE), p[3])
+        return p
+
+    def _sync_mode(self):
+        """Affiche le mode du jeu sélectionné (Recommandé / Manuel + xN) et les multiplicateurs que ce jeu accepte."""
+        if not hasattr(self, "seg_mode") or not self.seg_mode.winfo_exists() or not self.game:
+            return
+        appid, top = self.game["appid"], self._mult_max()
+        man = self.cfg.get("manual_mult", {}).get(appid)
+        self.seg_mode.set(self.L("mode_manual") if man else self.L("mode_auto"))
+        vals = [f"x{k}" for k in range(inimaker.MIN_MULT, top + 1)]
+        self.seg_mult.configure(values=vals)
+        if man:
+            self.seg_mult.set(f"x{max(inimaker.MIN_MULT, min(top, int(man)))}")
+            self.seg_mult.pack(anchor="w", fill="x", pady=(0, 4), after=self.seg_mode)
+            self.lbl_vram.configure(text=self.L("vram_note"))
+            self.lbl_vram.pack(anchor="w", fill="x", pady=(0, 4), after=self.seg_mult)
+        else:
+            self.seg_mult.pack_forget()
+            self.lbl_vram.pack_forget()
+
+    def _on_mode(self, val):
+        if self._busy or not self.game:
+            return self._sync_mode()
+        mm = self.cfg.setdefault("manual_mult", {})
+        if val == self.L("mode_manual"):
+            mm[self.game["appid"]] = self._plan()[0]      # part du multiplicateur recommandé
+        else:
+            mm.pop(self.game["appid"], None)
+        config.save(self.cfg)
+        self._sync_mode()
+        self._refresh_status()
+
+    def _on_manual_mult(self, val):
+        if self._busy or not self.game:
+            return self._sync_mode()
+        self.cfg.setdefault("manual_mult", {})[self.game["appid"]] = int(val.lstrip("x"))
+        config.save(self.cfg)
+        self._refresh_status()
+
+    def _result_text(self, p):
+        """« x3 · 59 images calculées → 177 affichées » (ou « Calibré : … » après une session mesurée) + avertissement."""
+        mult, t, warn, cal = p
+        if not t:
+            return f"x{mult} · " + self.L("hz_unknown")
+        txt = self.L("result_cal" if cal else "result") % (mult, round(t / mult), t)
+        return txt + ("\n⚠ " + self.L("warn_soft") if warn else "")
 
     def _learn_cap(self, g, got):
         """Retient ce que le jeu a réellement donné. Demandé 6, obtenu 4 -> plafond prouvé x4 ; sinon aucun plafond connu."""
@@ -1081,56 +1430,28 @@ class App(ctk.CTk):
         old = caps.get(g["appid"])
         if got and asked and got < asked:
             caps[g["appid"]] = got
+            if self.game and self.game.get("appid") == g["appid"] and self._mfg_ver:   # plugin du jeu au moment de la preuve
+                self.cfg.setdefault("proven_cap_ver", {})[g["appid"]] = self._mfg_ver
         elif got and old and got > old:          # le jeu a fait mieux que le plafond retenu (mise à jour du jeu) : on l'oublie
             caps.pop(g["appid"], None)
         if caps.get(g["appid"]) != old:
             config.save(self.cfg)
 
-    def _apply_mult_limits(self):
-        top = self._mult_max()
-        for var in (self.mult, self.quick_var):
-            if MULT[var.get()] > top:
-                var.set(f"{top}X")
-        self._lock_mult(self.seg_quick)
-
-    def _quick_mult(self, val):
-        """Change le multiplicateur imposé du jeu sans réinstaller : une seule écriture dans son profil NVIDIA."""
-        if self._busy or not (self.game and self.exe.get()):
-            return
-        m, g, npi, exe = MULT[val], self.game, self.npi.get(), os.path.basename(self.exe.get())
-        self._busy = True
-        self._fade_text(self.lbl_quick, self.L("quick_run") % m, DIM)
-
-        def done(r, e):
-            self._busy = False
-            ok, msg = r if r else (False, str(e))
-            if not self.lbl_quick.winfo_exists():
-                return
-            if ok:
-                self.cfg.setdefault("mult_by_game", {})[g["appid"]] = m
-                self.mult.set(val)
-                self.unlock_drs.set(True)
-                config.save(self.cfg)
-                self._fade_text(self.lbl_quick, self.L("quick_ok") % m, GREEN)
-            elif msg.startswith("NEED_ADMIN"):
-                self._fade_text(self.lbl_quick, "✗ " + msg, "#f0b63a")
-                self._ask_admin()
-            else:
-                self._fade_text(self.lbl_quick, "✗ " + msg, "#f0b63a")
-        self._async(lambda: nvcp.unlock_mfg(npi, DATA, m - 1, exe), done)
-
     def _apply_scan(self, g, info, silent):
         """Affiche le résultat du scan (support FG, plugin, conflits, anti-cheat) pour le jeu courant."""
         sup, cap, ver, note, clash = info["sup"], info["cap"], info["ver"], info["note"], info["clash"]
+        old_ver = self.cfg.get("proven_cap_ver", {}).get(g["appid"])
+        if ver and old_ver and ver != old_ver and g["appid"] in self.cfg.get("proven_cap", {}):
+            # le jeu a changé de plugin DLSS-G (mise à jour) : le plafond prouvé avec l'ancien ne vaut plus, x6 redevient possible
+            self.cfg["proven_cap"].pop(g["appid"], None)
+            self.cfg["proven_cap_ver"].pop(g["appid"], None)
+            config.save(self.cfg)
+            self._log("ℹ " + self.L("cap_reset") % (old_ver, ver))
         self._anticheat = info["anticheat"]
         self._clash = clash
         self._mfg_cap = cap
         self._mfg_ver = ver
-        self._force_ok = info["force_ok"]
-        if not self._force_ok[0]:
-            self.force_mfg.set(False)   # jamais de force résiduelle d'un jeu précédent sur un plugin non patchable
-        self._apply_mult_limits()
-        base = self.L("fg_yes") if sup == "yes" else self.L("fg_no")
+        base =self.L("fg_yes") if sup == "yes" else self.L("fg_no")
         if sup == "yes":
             base += "\n" + self.L(note) + (f"  (plugin {ver})" if ver else "")
         if clash:
@@ -1167,13 +1488,22 @@ class App(ctk.CTk):
         exe0 = self.exe.get()
         if exe0:
             def seen(r, e):
+                if r:
+                    self._stats[exe0] = r[1]
                 if self.game is not g or not (r and r[0] and r[0].get("found")):
-                    return
-                got = r[1]
+                    return self._refresh_status()
+                got = int(round(r[1]["mult"])) if r[1] and r[1]["mult"] > 1 else None
                 self._learn_cap(g, got)
                 self.lbl_logs.configure(text=self.L("logs_found") + (self.L("last_measured") % got if got else ""))
-                self._apply_mult_limits()
-            self._async(lambda: (loganalyze.read(exe0), loganalyze.measured_mult(exe0)), seen)
+                self._refresh_status()                  # un plafond prouvé change le multiplicateur prévu
+            self._async(lambda: (loganalyze.read(exe0), loganalyze.session_stats(exe0)), seen)
+            npi0, w0 = self.npi.get(), self.cfg.get("cap_written", {}).get(g["appid"])
+
+            def capped(v, e):                            # plafond FPS du joueur : la fiche l'annonce avant le clic
+                self._caps[exe0] = None if e else v
+                if self.game is g:
+                    self._refresh_status()
+            self._async(lambda: nvcp.user_cap(npi0, DATA, os.path.basename(exe0), w0), capped)
         if self._up_game != g["dir"]:
             self._up_game, self._up_last = g["dir"], None
             self._up_tok += 1                        # les opérations de l'ancien jeu ne touchent plus à l'état
@@ -1245,7 +1575,12 @@ class App(ctk.CTk):
         hdr = ctk.CTkFrame(self.up_box, fg_color="transparent"); hdr.pack(fill="x")
         lib = self.cfg.get("dll_lib", "")
         ctk.CTkButton(hdr, text="Bibliothèque DLL : " + (os.path.basename(lib) if lib else "choisir…"),
-                      font=FONT, fg_color=SURF2, hover_color=GREEN_D, command=self._pick_lib).pack(side="left")
+                      font=FONT, fg_color=SURF2, hover_color=GREEN_D, command=self._pick_lib,
+                      state="disabled" if self._up_busy else "normal").pack(side="left")
+        self._ups_todo = []                          # upscalers with a newer version, filled below
+        self._up_all_btn = ctk.CTkButton(hdr, text=self.L("up_all"), font=FONT_B, width=190, fg_color=GREEN_D, hover_color=GREEN,
+                                         text_color=BG, text_color_disabled=DIM, state="disabled", command=self._install_all)
+        self._up_all_btn.pack(side="right")
         self._up_status = ctk.CTkLabel(self.up_box, text="", font=FONT, text_color=GREEN, anchor="w", wraplength=440, justify="left")
         self._up_status.pack(fill="x", pady=(2, 4))
         self._up_prog = ctk.CTkProgressBar(self.up_box, mode="indeterminate", height=6, progress_color=GREEN, fg_color=SURF2)
@@ -1263,6 +1598,7 @@ class App(ctk.CTk):
             avail = (m[1] if m else manifest.get(u["name"].lower(), {}).get("version"))
             if avail and avail != u["version"]:
                 btxt, state, col = f"Installer v{avail}", "normal", GREEN_D
+                self._ups_todo.append(u)
             elif avail:
                 btxt, state, col = "À jour", "disabled", SURF2
             else:
@@ -1271,12 +1607,57 @@ class App(ctk.CTk):
             ctk.CTkLabel(row, text=f"{u['vendor']} · {u['role']} · v{u['version']}{tail}", font=FONT,
                          anchor="w", text_color=TXT).pack(side="left", fill="x", expand=True)
             if upscalers.has_backup(u["path"]):
-                ctk.CTkButton(row, text="Restaurer", font=FONT, width=100, fg_color=SURF2,
-                              hover_color=GREEN_D, command=lambda u=u: self._restore_dll(u)).pack(side="left", padx=4)
+                ctk.CTkButton(row, text="Restaurer", font=FONT, width=100, fg_color=SURF2, text_color_disabled=DIM,
+                              hover_color=GREEN_D, state="disabled" if self._up_busy else "normal",
+                              command=lambda u=u: self._restore_dll(u)).pack(side="left", padx=4)
             ctk.CTkButton(row, text=btxt, font=FONT, width=160, fg_color=col, hover_color=GREEN,
                           text_color=BG, text_color_disabled=DIM,
                           state="disabled" if (self._up_busy or state == "disabled") else "normal",
                           command=lambda u=u: self._install_dll(u)).pack(side="left")
+        if self._ups_todo and not self._up_busy:
+            self._up_all_btn.configure(state="normal")
+
+    def _install_all(self):
+        """Update every upscaler that has a newer version, one after the other in the background; all buttons stay greyed until the end."""
+        if self._up_busy or not self._ups_todo:
+            return
+        g, todo = self.game, list(self._ups_todo)
+        lib = self.cfg.get("dll_lib", "") or os.path.join(RES, "tools", "dlls")
+        self._up_busy = self._up_dl = True
+        self._up_tok += 1
+        tok = self._up_tok
+        cached = self._ups_cache.get(g["dir"])
+        if cached:
+            self._fill_upscalers(*cached)            # every button greyed at once
+        self._up_bar(True)
+        self._up_msg("⏳ " + self.L("up_all_run") % len(todo), DIM)
+
+        def work():
+            lines = []
+            for u in todo:
+                try:
+                    m = upscalers.library_match(u["name"], lib)
+                    if m:
+                        lines.append((True, upscalers.swap(u["path"], m[0]) + f" (v{m[1]})"))
+                    else:
+                        ok, msg = upscalers.install_latest(u["path"])
+                        lines.append((ok, u["name"] + " : " + msg))
+                except Exception as e:                # one failure must not stop the others
+                    lines.append((False, u["name"] + " : " + str(e)))
+            return lines
+        def done(lines, e):
+            lines = lines or [(False, str(e))]
+            for ok, msg in lines:
+                self._log(("✓ " if ok else "✗ ") + msg)
+            if tok != self._up_tok or self.game is not g:
+                return
+            self._up_dl = False
+            self._up_bar(False)
+            good = sum(ok for ok, _ in lines)
+            self._up_msg(("✓ " if good == len(lines) else "⚠ ") + self.L("up_all_done") % (good, len(lines)),
+                         GREEN if good == len(lines) else "#f0b63a")
+            self._reload_upscalers(g, 3500, tok)     # the rescan with this token frees the buttons
+        self._async(work, done)
 
     def _pick_lib(self):
         d = filedialog.askdirectory(title="Dossier bibliothèque de DLL (DLSS/FSR/XeSS récents)")
@@ -1342,6 +1723,9 @@ class App(ctk.CTk):
         self._up_busy = self._up_dl = True
         self._up_tok += 1
         tok = self._up_tok
+        cached = self._ups_cache.get(g["dir"])
+        if cached:
+            self._fill_upscalers(*cached)            # grey the other buttons on screen too, not only internally
         self._up_bar(True)
 
         def work():
@@ -1447,10 +1831,6 @@ class App(ctk.CTk):
         self._cover_pool.shutdown(wait=False, cancel_futures=True)
         self.destroy()
 
-    def _target_fps(self):
-        """Cible FPS : le choix de l'utilisateur, sinon la fréquence de l'écran (jamais un 120 oublié)."""
-        return self._fps_int() if (self._fps_touched or not self.refresh) else self.refresh
-
     def _apply_block(self):
         """Texte qui explique pourquoi on ne peut pas appliquer ici, ou None si on peut (installer/écraser)."""
         exe = self.exe.get()
@@ -1468,303 +1848,14 @@ class App(ctk.CTk):
                 "other_proxy": self.L("blk_other_proxy") % detail,
                 "locked": self.L("blk_locked") % detail}[code]
 
-    def _reco_mult(self):
-        """(multiplicateur conseillé, Hz, FPS réels mesurés|None)."""
-        hz = self.refresh or 144
-        real = loganalyze.real_fps(self.exe.get()) if self.exe.get() else None
-        m = max(2, min(6, round((hz - 3) / real))) if real else (6 if self._mfg_cap >= 6 else 4)
-        return min(m, self._mult_max()), hz, real
-
-    def _build_simple(self, parent):
-        """Écran de base : un seul choix (le multiplicateur). Tout le reste est décidé automatiquement."""
-        ctk.CTkLabel(parent, text=self.L("mult_label"), font=FONT_H, text_color=GREEN).pack(anchor="w", padx=18, pady=(16, 6))
-        m, hz, real = self._reco_mult()
-        helptxt = ctk.CTkLabel(parent, text="", font=FONT, text_color=TXT, wraplength=620, justify="left")
-        def upd(*_):
-            if helptxt.winfo_exists():
-                helptxt.configure(text=self.L(f"mult_help_{MULT[self.mult.get()]}"))
-        seg = ctk.CTkSegmentedButton(parent, values=list(MULT), variable=self.mult, font=FONT_B, height=56,
-                                     selected_color="#3f7a1a", selected_hover_color="#4f8a1e", unselected_color=EDGE,
-                                     unselected_hover_color=SURF, text_color=TXT, command=upd)
-        seg.pack(fill="x", padx=18)
-        self._lock_mult(seg)
-        if self._mult_max() < 6:
-            ctk.CTkLabel(parent, text=self.L("mult_capped") % self._mult_max(), font=FONT, text_color="#f0b63a",
-                         wraplength=620, justify="left").pack(anchor="w", padx=18, pady=(8, 0))
-        helptxt.pack(anchor="w", padx=18, pady=(10, 4))
-        reco = (self.L("reco_mult_real") % (m, round(real, 1), hz)) if real else (self.L("reco_mult_none") % hz).replace("x4", f"x{m}", 1)
-        ctk.CTkLabel(parent, text=reco, font=FONT, text_color=GREEN, wraplength=620,
-                     justify="left").pack(anchor="w", padx=18, pady=(0, 6))
-        if self.unlock_drs.get():
-            ctk.CTkLabel(parent, text="ℹ " + self.L("imposed_note"), font=FONT, text_color="#f0b63a", wraplength=620,
-                         justify="left").pack(anchor="w", padx=18, pady=(0, 10))
-        upd()
-
-    def _open_options(self):
-        if not self.game or not self.exe.get():
-            return messagebox.showwarning("YogoMFG", self.L("need_game"))
-        cur = installer.status(self.exe.get())
-        if cur["mult"] in (2, 3, 4, 5, 6):
-            self.mult.set(f"{min(cur['mult'], self._mult_max())}X")   # reprend ce qui est déjà installé pour ce jeu
-        elif not loganalyze.real_fps(self.exe.get()):
-            self.mult.set(f"{self._reco_mult()[0]}X")    # première fois : x6 si le plugin du jeu le permet
-        body, bar = self._overlay(self.L("simple_title"))
-        block = self._apply_block()
-        if block:
-            ctk.CTkLabel(body, text="⛔ " + block, font=FONT_B, text_color="#ff6b5a", wraplength=620,
-                         justify="left").pack(anchor="w", padx=18, pady=(14, 0))
-        self._build_simple(body)
-        wrap = ctk.CTkFrame(body, fg_color="transparent"); wrap.pack(fill="x")
-        adv = ctk.CTkFrame(wrap, fg_color="transparent")
-        st = {"built": False, "open": False}
-        tgl = ctk.CTkButton(wrap, text="▸ " + self.L("advanced"), font=FONT, anchor="w", fg_color=SURF,
-                            hover_color=GREEN_D)
-        def toggle():
-            st["open"] = not st["open"]
-            if st["open"]:
-                if not st["built"]:
-                    self._build_opts(adv)
-                    st["built"] = True
-                adv.pack(fill="x", pady=6)
-            else:
-                adv.pack_forget()
-            tgl.configure(text=("▾ " if st["open"] else "▸ ") + self.L("advanced"))
-        tgl.configure(command=toggle)
-        tgl.pack(fill="x", padx=18, pady=10)
-        ctk.CTkButton(bar, text=self.L("close"), font=FONT_B, width=140, height=46, fg_color=SURF2,
-                      hover_color=EDGE, command=self._close_overlay).pack(side="left")
-        ctk.CTkButton(bar, text=self.L("apply_upd" if installer.status(self.exe.get())["installed"] else "optimize"),
-                      font=FONT_B, width=240, height=48, fg_color=GREEN, hover_color=GREEN_D, text_color=BG,
-                      text_color_disabled=DIM, state="disabled" if block else "normal",
-                      command=self._apply_from_modal).pack(side="right")
-
-    def _apply_from_modal(self):
-        """Ferme l'overlay et lance l'installation (console log/prog sur la page)."""
-        self._close_overlay()
-        self._applied = False
-        self.do_apply()
-
-    def _build_opts(self, parent):
-        """Toutes les options (qualité DLSS + cible FPS/écran + pilote) dans un seul panneau."""
-        ctk.CTkLabel(parent, text=self.L("q_hint"), font=FONT, text_color="#f0b63a",
-                     wraplength=820, justify="left").pack(anchor="w", padx=18, pady=(14, 6))
-        reco = inimaker.recommend_quality(self._fps_int())
-        for q in inimaker.QUALITY:
-            txt = inimaker.QUALITY_FR[q] + (f"    {self.L('q_reco')}" if q == reco else "")
-            ctk.CTkRadioButton(parent, text=txt, variable=self.quality, value=q, font=FONT,
-                               fg_color=GREEN, text_color=GREEN if q == reco else TXT).pack(anchor="w", padx=24, pady=6)
-        ctk.CTkLabel(parent, text=self.L("q_note"), font=FONT, text_color=DIM,
-                     wraplength=820, justify="left").pack(anchor="w", padx=18, pady=(4, 10))
-
-        top = ctk.CTkFrame(parent, fg_color="transparent"); top.pack(fill="x", padx=18, pady=(6, 6))
-        self._label_tip(top, self.L("scope"), "scope").pack(side="left", padx=(0, 8))
-        ctk.CTkSegmentedButton(top, variable=self.scope, values=["global", "game"], font=FONT,
-                               selected_color=GREEN_D, selected_hover_color=GREEN).pack(side="left")
-        ctk.CTkLabel(top, text="  " + self.L("scope_g") + " / " + self.L("scope_j"),
-                     font=FONT, text_color=DIM).pack(side="left")
-
-        grid = ctk.CTkFrame(parent, fg_color="transparent"); grid.pack(fill="x", padx=18, pady=10)
-        def cell(col, label, tipkey, widget):
-            f = ctk.CTkFrame(grid, fg_color="transparent"); f.grid(row=0, column=col, padx=14, sticky="w")
-            self._label_tip(f, label, tipkey).pack(anchor="w")
-            widget(f)
-        cell(0, self.L("fps"), "fps", lambda f: ctk.CTkComboBox(f, variable=self.fps, values=FPS_CHOICES,
-             font=FONT, width=120, fg_color=SURF2, button_color=GREEN_D, command=lambda _: (setattr(self, "_fps_touched", True), self._cap_lbl())).pack())
-        cell(1, self.L("mult"), "mult", lambda f: ctk.CTkOptionMenu(f, variable=self.mult, values=list(MULT),
-             font=FONT, width=110, fg_color=SURF2, button_color=GREEN_D).pack())
-        cell(2, self.L("preset"), "preset", lambda f: ctk.CTkOptionMenu(f, variable=self.preset, values=["Auto", "B", "C"],
-             font=FONT, width=110, fg_color=SURF2, button_color=GREEN_D).pack())
-
-        mon = ctk.CTkFrame(parent, fg_color="transparent"); mon.pack(fill="x", padx=18, pady=8)
-        if not self.monitors:
-            self.monitors = display.monitors()
-        names = [f"{m['index']}: {m.get('model', m['name'])} · {m.get('res','')}@{m.get('hz','?')}Hz"
-                 + (" ★" if m["primary"] else "") for m in self.monitors] or ["—"]
-        if not self.mon_var.get():
-            self.mon_var.set(names[0])
-        self._label_tip(mon, self.L("monitor"), "monitor").grid(row=0, column=0, sticky="w", padx=6)
-        ctk.CTkOptionMenu(mon, variable=self.mon_var, values=names, font=FONT, width=300,
-                          fg_color=SURF2, button_color=GREEN_D, command=lambda _: self._refresh_list()).grid(row=1, column=0, padx=6)
-        self._label_tip(mon, self.L("refresh"), "refresh").grid(row=0, column=1, sticky="w", padx=6)
-        self.hz_menu = ctk.CTkOptionMenu(mon, variable=self.hz_var, values=["—"], font=FONT, width=100,
-                                         fg_color=SURF2, button_color=GREEN_D)
-        self.hz_menu.grid(row=1, column=1, padx=6)
-        ctk.CTkButton(mon, text=self.L("set_hz"), font=FONT, fg_color=SURF2, hover_color=GREEN_D,
-                      command=self._set_refresh).grid(row=1, column=2, padx=6)
-        self._refresh_list()
-
-        self._label_tip(parent, self.L("sync"), "sync", GREEN).pack(anchor="w", padx=18, pady=(10, 0))
-        sf = ctk.CTkFrame(parent, fg_color="transparent"); sf.pack(anchor="w", padx=18)
-        for txt, val in ((self.L("gsync"), "gsync"), (self.L("freesync"), "freesync"), (self.L("none"), "none")):
-            ctk.CTkRadioButton(sf, text=txt, variable=self.sync_type, value=val, font=FONT, fg_color=GREEN).pack(side="left", padx=12)
-        det = (self.L("vrr_yes") % (self.vrr[2] or "?", self.vrr[0], self.vrr[1])) if self.vrr else self.L("vrr_no")
-        ctk.CTkLabel(parent, text=det, font=FONT, text_color=GREEN if self.vrr else "#f0b63a", wraplength=620,
-                     justify="left").pack(anchor="w", padx=18, pady=(6, 0))
-        ctk.CTkLabel(parent, text=self.L("sync_hint"), font=FONT, text_color=DIM,
-                     wraplength=820, justify="left").pack(anchor="w", padx=18, pady=8)
-        self.cap_label = ctk.CTkLabel(parent, text="", font=FONT_B, text_color=GREEN)
-        self.cap_label.pack(anchor="w", padx=18, pady=(0, 12))
-        self._cap_lbl()
-
-        fm = ctk.CTkFrame(parent, fg_color=BG, corner_radius=12); fm.pack(fill="x", padx=18, pady=(4, 6))
-        self._label_tip(fm, self.L("force_mfg"), "force_mfg", "#f0b63a").pack(anchor="w", padx=12, pady=6)
-        ok, fver = self._force_ok
-        if ok:
-            ctk.CTkCheckBox(fm, text=self.L("force_mfg_on"), variable=self.force_mfg, font=FONT,
-                            fg_color="#f0b63a").pack(anchor="w", padx=12, pady=(0, 10))
-        else:
-            msg = self.L("force_blocked") % fver if fver else self.L("force_blocked_none")
-            ctk.CTkLabel(fm, text=msg, font=FONT, text_color=DIM, wraplength=780,
-                         justify="left").pack(anchor="w", padx=12, pady=(0, 10))
-
-        ud = ctk.CTkFrame(parent, fg_color=BG, corner_radius=12); ud.pack(fill="x", padx=18, pady=(4, 6))
-        self._label_tip(ud, self.L("unlock_drs"), "unlock_drs", GREEN).pack(anchor="w", padx=12, pady=6)
-        ctk.CTkCheckBox(ud, text=self.L("unlock_drs_on"), variable=self.unlock_drs, font=FONT,
-                        fg_color=GREEN).pack(anchor="w", padx=12, pady=(0, 10))
-
-        nv = ctk.CTkFrame(parent, fg_color=BG, corner_radius=12); nv.pack(fill="x", padx=18, pady=(4, 12))
-        self._label_tip(nv, self.L("nvcp"), "nvcp", GREEN).pack(anchor="w", padx=12, pady=6)
-        ctk.CTkCheckBox(nv, text=self.L("nvcp_on"), variable=self.do_nvcp, font=FONT,
-                        fg_color=GREEN).pack(anchor="w", padx=12, pady=(0, 10))
-
-        rq = ctk.CTkFrame(parent, fg_color=BG, corner_radius=12); rq.pack(fill="x", padx=18, pady=(4, 6))
-        ctk.CTkLabel(rq, text=self.L("ref_q"), font=FONT_B, text_color=GREEN).pack(anchor="w", padx=12, pady=6)
-        ctk.CTkCheckBox(rq, text=self.L("ref_q_on"), variable=self.ref_quality, font=FONT,
-                        fg_color=GREEN).pack(anchor="w", padx=12, pady=(0, 10))
-
-        ms = ctk.CTkFrame(parent, fg_color=BG, corner_radius=12); ms.pack(fill="x", padx=18, pady=(4, 12))
-        ctk.CTkLabel(ms, text=self.L("measure"), font=FONT_B, text_color=GREEN).pack(anchor="w", padx=12, pady=6)
-        ctk.CTkCheckBox(ms, text=self.L("measure_on"), variable=self.frame_timing, font=FONT,
-                        fg_color=GREEN).pack(anchor="w", padx=12, pady=(0, 10))
-
-    def _mon(self):
-        try:
-            i = int(self.mon_var.get().split(":")[0]) - 1
-        except (ValueError, IndexError):
-            i = 0
-        return self.monitors[i] if 0 <= i < len(self.monitors) else None
-
-    def _refresh_list(self):
-        m = self._mon()
-        if not m:
-            return
-        rates = display.refresh_rates(m["device"])
-        cur = display.current(m["device"])
-        self.refresh = cur[2] if cur else self.refresh
-        self.hz_menu.configure(values=[str(r) for r in rates] or ["—"])
-        self.hz_var.set(str(cur[2]) if cur else (str(rates[-1]) if rates else "—"))
-        self._cap_lbl()
-
-    def _set_refresh(self):
-        m = self._mon()
-        if not m or not self.hz_var.get().isdigit():
-            return
-        hz = int(self.hz_var.get())
-        if not messagebox.askyesno("YogoMFG", f"Changer le refresh en {hz} Hz ? (réversible)", parent=self):
-            return
-        ok, msg = display.set_refresh(m["device"], hz)
-        messagebox.showinfo("YogoMFG", msg, parent=self)
-        if ok:
-            self.refresh = hz; self._cap_lbl()
-
-    def _cap_lbl(self):
-        lbl = getattr(self, "cap_label", None)
-        if lbl is not None and lbl.winfo_exists():   # modale détruite -> label périmé, ne pas toucher
-            cap = inimaker.fps_cap(self._target_fps(), self.refresh)
-            lbl.configure(text=f"{self.L('cap_is')} : {cap} FPS  (refresh {self.refresh or '?'} Hz)")
-
-    def _fps_int(self):
-        d = "".join(c for c in self.fps.get() if c.isdigit())
-        return max(20, int(d)) if d else 120
-
     # ---------- 5 apply ----------
-    # ---------- optimisation NVIDIA globale (presets vérifiés) ----------
-    def _open_nvidia_tune(self):
-        body, bar = self._overlay(self.L("nv_title"))
-        st = nvpreset.state(DATA)
-        self._nv_goal = ctk.StringVar(value=st.get("preset") or "balanced")
-        has_vrr = bool(self.vrr) or (not self.hw and self.sync_type.get() in ("gsync", "freesync"))
-        self._nv_vsync = ctk.BooleanVar(value=False if has_vrr else bool(st.get("vsync", False)))
-        g = self.hw or {}
-        card = " · ".join(x for x in (g.get("name", ""), f"{g['vram_mb'] // 1024} {'Go' if self.lang == 'fr' else 'GB'}" if g.get("vram_mb") else "",
-                                      f"{'série' if self.lang == 'fr' else 'series'} {g['series']}" if g.get("series") else "") if x)
-        ctk.CTkLabel(body, text=card or "NVIDIA", font=FONT_B, text_color=GREEN).pack(anchor="w", padx=18, pady=(14, 2))
-        ctk.CTkLabel(body, text=self.L("nv_state") % (st.get("preset") or self.L("nv_none")), font=FONT,
-                     text_color=DIM).pack(anchor="w", padx=18)
-        self._label_tip(body, self.L("nv_goal"), "nvcp", GREEN).pack(anchor="w", padx=18, pady=(12, 2))
-        info = ctk.CTkLabel(body, text="", font=FONT, text_color=TXT, wraplength=620, justify="left")
-        prev = ctk.CTkLabel(body, text="", font=("Consolas", 14), text_color=DIM, wraplength=640, justify="left")
-
-        def refresh(*_):
-            if not info.winfo_exists():
-                return
-            k = self._nv_goal.get()
-            info.configure(text=nvpreset.info_text(k, self.lang))
-            prev.configure(text="\n".join("  • " + x for x in nvpreset.describe(k, self._nv_vsync.get(), self.lang)))
-        for key, lbl in (("perf", "nv_perf"), ("balanced", "nv_bal"), ("quality", "nv_qual")):
-            ctk.CTkRadioButton(body, text=self.L(lbl) + (f"    {self.L('q_reco')}" if key == "balanced" else ""),
-                               variable=self._nv_goal, value=key, font=FONT, fg_color=GREEN,
-                               command=refresh).pack(anchor="w", padx=26, pady=5)
-        info.pack(anchor="w", padx=18, pady=(8, 6))
-        if has_vrr:
-            ctk.CTkLabel(body, text="✓ " + self.L("nv_vrr_note"), font=FONT, text_color=GREEN, wraplength=640,
-                         justify="left").pack(anchor="w", padx=18, pady=6)
-        else:
-            ctk.CTkCheckBox(body, text=self.L("nv_vsync_novrr"), variable=self._nv_vsync, font=FONT,
-                            fg_color=GREEN, command=refresh).pack(anchor="w", padx=18, pady=6)
-        ctk.CTkLabel(body, text=self.L("nv_will"), font=FONT_B, text_color=DIM).pack(anchor="w", padx=18, pady=(10, 0))
-        prev.pack(anchor="w", padx=18)
-        ctk.CTkLabel(body, text=self.L("nv_note"), font=FONT, text_color="#f0b63a", wraplength=640,
-                     justify="left").pack(anchor="w", padx=18, pady=10)
-        self._nv_msg = ctk.CTkLabel(body, text="", font=FONT_B, text_color=GREEN, wraplength=640, justify="left")
-        self._nv_msg.pack(anchor="w", padx=18, pady=(0, 12))
-        refresh()
-        ctk.CTkButton(bar, text=self.L("close"), font=FONT_B, width=140, height=46, fg_color=SURF2,
-                      hover_color=EDGE, command=self._close_overlay).pack(side="left")
-        ctk.CTkButton(bar, text=self.L("nv_apply"), font=FONT_B, width=220, height=48, fg_color=GREEN,
-                      hover_color=GREEN_D, text_color=BG, command=self._nv_apply).pack(side="right")
-        ctk.CTkButton(bar, text=self.L("nv_revert"), font=FONT_B, width=220, height=48, fg_color=SURF2,
-                      hover_color="#7a3030", command=self._nv_revert).pack(side="right", padx=8)
-
-    def _nv_say(self, text, color=GREEN):
-        lbl = getattr(self, "_nv_msg", None)
-        if lbl is not None and lbl.winfo_exists():
-            self._fade_text(lbl, text, color)
-        else:
-            self._log(text)
-
-    def _nv_run(self, fn):
-        if self._nv_busy:
-            return
-        self._nv_busy = True
-        self._nv_say(self.L("nv_run"), DIM)
-        def done(r, e):
-            self._nv_busy = False
-            ok, msg = r if r else (False, str(e))
-            if (not ok) and msg.startswith("NEED_ADMIN"):
-                self._nv_say("✗ " + msg, "#f0b63a")
-                self._ask_admin()
-            else:
-                self._nv_say(("✓ " if ok else "✗ ") + msg, GREEN if ok else "#f0b63a")
-        self._async(fn, done)
-
-    def _nv_apply(self):
-        preset, npi = self._nv_goal.get(), self.npi.get()
-        vs = self._nv_vsync.get() and not self.vrr       # jamais de V-Sync forcé sur un écran G-Sync / FreeSync
-        self._nv_run(lambda: nvpreset.apply(npi, DATA, preset, vs))
-
-    def _nv_revert(self):
-        npi = self.npi.get()
-        self._nv_run(lambda: nvpreset.revert(npi, DATA))
-
     def _open_soft_opts(self):
-        """Options logiciel (globales) : proxy par défaut, chemin NPI, revert NVCP, admin."""
+        """Options logiciel (globales) : chemin NPI, revert NVCP, rapport, admin."""
+        if self._busy:
+            return
         pad, bar = self._overlay(self.L("soft_opts"))
         ctk.CTkButton(bar, text=self.L("close"), font=FONT_B, width=140, height=46, fg_color=SURF2,
                       hover_color=EDGE, command=self._close_overlay).pack(side="left")
-        ctk.CTkLabel(pad, text=self.L("proxy"), font=FONT_B, text_color=DIM).pack(anchor="w", padx=14, pady=(12, 0))
-        ctk.CTkOptionMenu(pad, variable=self.proxy, values=list(installer.PROXIES), font=FONT,
-                          width=200, fg_color=SURF, button_color=GREEN_D).pack(anchor="w", padx=14)
         self._label_tip(pad, self.L("nvcp"), "nvcp", GREEN).pack(anchor="w", padx=14, pady=(14, 0))
         row = ctk.CTkFrame(pad, fg_color="transparent"); row.pack(fill="x", padx=14, pady=6)
         ctk.CTkEntry(row, textvariable=self.npi, font=FONT).pack(side="left", fill="x", expand=True)
@@ -1772,8 +1863,10 @@ class App(ctk.CTk):
         btns = ctk.CTkFrame(pad, fg_color="transparent"); btns.pack(anchor="w", padx=14, pady=10)
         ctk.CTkButton(btns, text=self.L("revert"), font=FONT, width=160, fg_color=SURF,
                       hover_color=GREEN_D, command=self._revert_nvcp).pack(side="left")
+        ctk.CTkButton(pad, text="📦 " + self.L("report_btn"), font=FONT, anchor="w", height=40, fg_color=SURF,
+                      hover_color=GREEN_D, command=self._export_report).pack(fill="x", padx=14, pady=(14, 4))
         ctk.CTkButton(pad, text="ℹ " + self.L("about_btn"), font=FONT, anchor="w", height=40, fg_color=SURF,
-                      hover_color=GREEN_D, command=self._show_about).pack(fill="x", padx=14, pady=(14, 4))
+                      hover_color=GREEN_D, command=self._show_about).pack(fill="x", padx=14, pady=(4, 4))
         if not nvcp.is_admin():
             ctk.CTkButton(btns, text=self.L("admin"), font=FONT, width=180, fg_color="#7a5a20",
                           hover_color="#9a7430", command=self._relaunch_admin).pack(side="left", padx=8)
@@ -1807,26 +1900,15 @@ class App(ctk.CTk):
             messagebox.showerror("YogoMFG", f"Relance admin échouée: {e}")
 
     def _revert_nvcp(self):
+        """Annule TOUT ce que YogoMFG a écrit dans les profils NVIDIA (tous les jeux + ancien préréglage global 0.6.x)."""
         npi = self.npi.get()
         def work():
-            _, a = nvcp.revert(npi, DATA)
-            _, b = nvcp.restore_mfg(npi, DATA)
-            return a + chr(10) + b
+            out = [nvcp.revert(npi, DATA)[1], nvcp.restore_mfg(npi, DATA)[1], nvpreset.revert_fg_global(npi, DATA)[1]]
+            if "originals" in nvpreset.state(DATA):      # préréglage global posé par une 0.6.x (bouton retiré en 0.7.0)
+                out.append(nvpreset.revert(npi, DATA)[1])
+            return chr(10).join(out)
         self._async(work, lambda r, e: messagebox.showinfo(
             "YogoMFG", r if e is None else f"Annulation échouée : {e}", parent=self))
-
-    def _cfg_now(self):
-        c = inimaker.default_cfg(self._target_fps())
-        c["multiplier"] = MULT[self.mult.get()]
-        c["preset"] = self.preset.get()
-        c["dlss_quality"] = self.quality.get()
-        c["sync_type"] = self.sync_type.get()
-        c["frame_timing"] = self.frame_timing.get()
-        c["max_ceiling"] = self.unlock_drs.get()
-        c["optimized"] = 1 if self.ref_quality.get() else 2
-        # le multiplicateur imposé par le pilote rend le patch du plugin inutile (et plus risqué) : exclusifs
-        c["force_mfg"] = self.force_mfg.get() and self._force_ok[0] and not self.unlock_drs.get()
-        return c
 
     def _post(self, frac, line=None):
         def u():
@@ -1837,83 +1919,68 @@ class App(ctk.CTk):
         self.after(0, u)
 
     def do_apply(self):
-        if self._busy or not (self.game and self.exe.get()):
+        """« Optimiser ce jeu » : mod + INI + profil NVIDIA du jeu, tout décidé automatiquement (voir inimaker.plan)."""
+        if self._busy:
             return
+        if not (self.game and self.exe.get()):
+            return messagebox.showwarning("YogoMFG", self.L("need_game"))
         block = self._apply_block()
         if block:                                        # revérifie au dernier moment (le jeu a pu être lancé entre-temps)
+            self.log.delete("1.0", "end")
             self._log("⛔ " + block)
             return
         if self._anticheat and not messagebox.askyesno(
                 "YogoMFG", self.L("anticheat_ask") % ", ".join(self._anticheat),
                 icon="warning", default="no", parent=self):
             return
-        self._busy = True
-        self.log.delete("1.0", "end"); self.prog.set(0)
-        c = self._cfg_now()
-        appid = self.game["appid"]
-        if self.scope.get() == "game":
-            self.cfg["per_game"][appid] = c
-        else:
-            self.cfg["global"] = c
-        self.cfg.setdefault("applied", {})[appid] = self.proxy.get()
-        self.cfg.setdefault("mult_by_game", {})[appid] = c["multiplier"]   # proxy appliqué par jeu -> Retirer restaure la bonne DLL
+        # Règle 2 (0.7.0) : cliquer « Optimiser » EST l'accord ; chaque écriture est relue, journalisée, annulée par Retirer.
+        self._set_busy(True, self.L("busy_opt"))
+        self.log.delete("1.0", "end"); self.prog.set(0.05)
+        exe_full, g, npi = self.exe.get(), self.game, self.npi.get()
+        written = self.cfg.get("cap_written", {}).get(g["appid"])
+        # dernière session + plafond FPS du joueur (profil NVIDIA), relus au moment du clic (hors thread UI)
+        self._async(lambda: (loganalyze.session_stats(exe_full), nvcp.user_cap(npi, DATA, os.path.basename(exe_full), written)),
+                    lambda r, e: self._apply_planned(g, exe_full, None if e else r[0], None if e else r[1]))
+
+    def _apply_planned(self, g, exe_full, stats, ucap=None):
+        """Suite d'« Optimiser » : plan calculé avec la session fraîche et le plafond du joueur, puis écritures dans un thread."""
+        self._stats[exe_full] = stats
+        self._caps[exe_full] = ucap
+        appid = g["appid"]
+        if stats and stats["mult"] > 1:
+            self._learn_cap(g, int(round(stats["mult"])))      # demandé x4, obtenu x3 -> plafond prouvé x3
+        p = self._plan(appid, stats)
+        mult, cap, warn, cal = p
+        self._better.discard(appid)                                  # la proposition est appliquée
+        prev = installer.status(exe_full)["mult"]
+        self.cfg.setdefault("applied", {})[appid] = self.proxy.get()   # proxy posé pour ce jeu
+        self.cfg.setdefault("mult_by_game", {})[appid] = mult          # demandé -> plafond prouvé si le jeu donne moins
+        self.cfg.setdefault("installed_exe", {})[appid] = exe_full     # recalibrage au prochain démarrage
+        self.cfg.setdefault("cap_written", {})[appid] = cap            # notre cap : distingué du plafond réglé par le joueur
+        if ucap and cap == ucap:
+            self._log("ℹ " + self.L("cap_kept") % ucap)
         self.cfg["npi_exe"] = self._npi_to_save(); self.cfg["proxy"] = self.proxy.get()
         config.save(self.cfg)
-        # snapshots (pas de StringVar.get() dans le thread) ; NVCP écrit profil global ET jeu.
-        exe_full = self.exe.get()
-        exe = os.path.basename(exe_full)
-        proxy = self.proxy.get()
-        npi = self.npi.get()
-        cap = inimaker.fps_cap(self._target_fps(), self.refresh)
-        vrr = self.sync_type.get() in ("gsync", "freesync")
-        want_nvcp = self.do_nvcp.get()
-        want_unlock = self.unlock_drs.get()
-        qual, fps_i, vram, series = self.quality.get(), self._target_fps(), self.hw.get("vram_mb", 0), self.hw.get("series", "30")
-        over_cap = c["multiplier"] > self._mfg_cap and not self._force_ok[0]
+        head, _, tail = self._result_text(p).partition(chr(10))
+        self._log(("✓ " if cal else "ℹ ") + head + (f"  (x{prev} → x{mult})" if cal and prev and prev != mult else "")
+                  + (chr(10) + tail if tail else ""))
+        if self.vrr:
+            self._log("ℹ " + self.L("gsync_hint"))
+        args = (exe_full, self.proxy.get(), mult, cap, bool(self.vrr), self.npi.get())
+        free = bool(self.cfg.get("manual_mult", {}).get(appid))   # Manuel : plafond seulement, le menu du jeu décide
+        qual, hz, vram, series = self.quality.get(), self.refresh, self.hw.get("vram_mb", 0), self.hw.get("series", "30")
+        L = self.L
 
         def worker():
-            results = []
-            need_admin = False
+            results, need_admin = [], False
             try:
-                self._post(0.1, "⏳ Installation du mod Frame Generation…")
-                try:
-                    acts = installer.install(MOD_ROOT, exe_full, inimaker.make(c), proxy)
-                    self._post(0.45, f"✓ Mod installé ({len(acts)} éléments)")
-                    results.append(("Mod x" + str(c["multiplier"]) + " + INI", True))
-                except Exception as e:
-                    self._post(0.45, "✗ Install mod : " + str(e))
-                    results.append(("Mod", False))
-                    return
-                if want_nvcp:
-                    self._post(0.6, "⏳ Réglages pilote NVIDIA (cap FPS + VRR/G-Sync)…")
-                    ok, msg = nvcp.apply(npi, DATA, cap, vrr, exe)
-                    if (not ok) and msg.startswith("NEED_ADMIN"):
-                        need_admin = True
-                        self._post(0.85, "✗ NVIDIA : droits admin requis.")
-                        results.append(("Réglages NVIDIA", False))
-                    else:
-                        self._post(0.85, ("✓ " if ok else "✗ ") + "NVIDIA : " + msg)
-                        results.append(("Réglages NVIDIA (cap " + str(cap) + ")", ok))
-                if want_unlock and not need_admin:
-                    if over_cap:
-                        self._post(None, f"⚠ Plugin DLSS-G du jeu limité à {self._mfg_cap}X : x{c['multiplier']} peut couper la "
-                                         "Frame Generation (x1) ou saccader. Si c'est le cas, repasse en x4.")
-                    self._post(0.9, f"⏳ Multiplicateur x{c['multiplier']} imposé via le pilote…")
-                    ok, msg = nvcp.unlock_mfg(npi, DATA, c["multiplier"] - 1, exe)
-                    need_admin = msg.startswith("NEED_ADMIN")
-                    self._post(0.92, ("✓ " if ok else "✗ ") + msg)
-                    results.append((f"Multiplicateur pilote x{c['multiplier']}", ok))
-                elif not want_unlock and not need_admin:     # décoché : le jeu redécide -> on retire notre override
-                    ok, msg = nvcp.restore_mfg(npi, DATA, exe)
-                    need_admin = msg.startswith("NEED_ADMIN")
-                    if ok or need_admin:
-                        self._post(0.92, ("✓ " if ok else "✗ ") + msg)
-                self._post(0.95, "⏳ Conseils in-game…")
-                self._post(None, chr(10) + self.L("advice") + " :")
-                for a in optadvice.advise(fps_i, vram, series, qual):
-                    self._post(None, "  • " + a)
-            except Exception as e:      # jamais de worker silencieux : sinon _busy reste True et Apply est mort
-                self._post(None, "✗ Erreur inattendue : " + str(e))
+                results, need_admin = self._write_game(*args, self._post, free)
+                if results and results[0][1]:
+                    self._post(None, chr(10) + L("advice") + " :")
+                    for a in optadvice.advise(hz or 60, vram, series, qual):
+                        self._post(None, "  • " + a)
+            except Exception as e:      # jamais de worker silencieux : sinon _busy reste True et le bouton est mort
+                self._post(None, "✗ " + str(e))
                 results.append(("Erreur", False))
             finally:
                 self._post_done(results)
@@ -1922,20 +1989,89 @@ class App(ctk.CTk):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _write_game(self, exe_full, proxy, mult, cap, vrr, npi, post, free=False):
+        """Écritures d'« Optimiser » (thread de travail) : fichiers du mod puis profil NVIDIA du jeu, chacun vérifié.
+
+        Retourne (résultats [(libellé, ok)], admin_requis). `post(fraction, ligne)` publie vers la console.
+        """
+        L, exe, results = self.L, os.path.basename(exe_full), []
+        post(0.1, "⏳ " + L("opt_files"))
+        try:
+            acts = installer.install(MOD_ROOT, exe_full, inimaker.make(mult), proxy)
+            post(0.45, "✓ " + ", ".join(acts))
+            results.append((L("rc_mod") % mult, True))
+        except Exception as e:
+            post(0.45, "✗ " + str(e))
+            return results + [(L("rc_mod") % mult, False)], False
+        need_admin = False
+        if cap:
+            post(0.6, "⏳ " + L("opt_nv") % (cap, " + G-Sync/FreeSync" if vrr else ""))
+            ok, msg = nvcp.apply(npi, DATA, cap, vrr, exe)
+            need_admin = msg.startswith("NEED_ADMIN")
+            post(0.75, ("✓ " if ok else "✗ ") + ("NVIDIA : " + L("need_admin_nv") if need_admin else msg))
+            results.append((L("rc_cap") % cap, ok))
+        else:
+            post(0.75, "ℹ " + L("hz_unknown"))
+        if not need_admin and free:     # Manuel : xN = PLAFOND ; le menu du jeu choisit librement de x2 à xN
+            ok, msg = nvcp.restore_mfg(npi, DATA, exe)   # enlève un multiplicateur imposé par une optimisation précédente
+            need_admin = msg.startswith("NEED_ADMIN")
+            ok = ok or msg.startswith("Aucun")
+            post(0.92, ("✓ " if ok else "✗ ") + L("mult_free") % mult)
+            results.append((L("rc_mult") % mult, ok))
+        elif not need_admin:
+            post(0.85, "⏳ " + L("opt_mult") % mult)
+            ok, msg = nvcp.unlock_mfg(npi, DATA, mult - 1, exe)
+            need_admin = msg.startswith("NEED_ADMIN")
+            post(0.92, ("✓ " if ok else "✗ ") + msg)
+            results.append((L("rc_mult") % mult, ok))
+        if not need_admin:            # plafond x6 + VRR plein écran/fenêtré dans le global ; jamais de nombre imposé
+            ok, msg = nvpreset.apply_fg_global(npi, DATA, vrr)
+            need_admin = msg.startswith("NEED_ADMIN")
+            post(0.96, ("✓ " if ok else "✗ ") + msg)
+            results.append((L("rc_global"), ok))
+        return results, need_admin
+
+    def _auto_calibrate(self):
+        """Au démarrage : recalcule le multiplicateur des jeux optimisés d'après leur dernière session mesurée et
+        réécrit INI + profil du jeu s'il a changé. Jamais d'INI et de profil désaccordés : sans admin alors que le
+        pilote est autorisé, on laisse le clic « Optimiser » le faire (il demandera l'admin)."""
+        games = {a: e for a, e in self.cfg.get("installed_exe", {}).items() if e and os.path.isfile(e)}
+        if self._busy or not games or not self.refresh:
+            return
+        self._busy = True                                # lecture des journaux seulement : pas d'écran de chargement
+
+        npi, written = self.npi.get(), dict(self.cfg.get("cap_written", {}))
+
+        def read():
+            return {a: (e, installer.status(e), loganalyze.session_stats(e),
+                        nvcp.user_cap(npi, DATA, os.path.basename(e), written.get(a))) for a, e in games.items()}
+
+        def decided(found, err):
+            # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
+            for appid, (exe, st, stats, ucap) in (found or {}).items():
+                if stats and stats["mult"] > 1:
+                    self._learn_cap({"appid": appid}, int(round(stats["mult"])))
+                self._stats[exe], self._caps[exe] = stats, ucap
+                p = self._plan(appid, stats, exe)
+                if st["installed"] and p[3] and p[0] != st["mult"]:
+                    self._better.add(appid)
+                    self._log("✨ " + os.path.basename(exe) + " — " + self.L("better_log") % (st["mult"], p[0]))
+            self._set_busy(False)
+        self._async(read, decided)
+
     def _ask_admin(self):
         if messagebox.askyesno("YogoMFG", "Le réglage NVIDIA exige l'admin. Relancer en admin ?"):
             self._relaunch_admin()
 
     def _post_done(self, results):
         def u():
-            self._busy = False
+            self._set_busy(False)
             self.prog.set(1.0)
-            self._log("\n── Récapitulatif ──")
+            self._log(chr(10) + self.L("recap"))
             for name, ok in results:
-                self._log(("  ✓ " if ok else "  ✗ ") + name + ("  validé" if ok else "  NON validé"))
-            self._log("\nLance le jeu (bouton Launch), active Frame Generation " + self.mult.get() +
-                      ". Puis « " + self.L("analyser") + " » pour lire les logs.")
-            self._applied = True
+                self._log(("  ✓ " if ok else "  ✗ ") + name + "  " + self.L("ok_v" if ok else "ko_v"))
+            self._log(chr(10) + self.L("done_hint"))
+            self._log("💡 " + self.L("after_opt_hint"))
             self._refresh_status()
         self.after(0, u)
 
@@ -1985,8 +2121,8 @@ class App(ctk.CTk):
             "GPU": h.get("name", "?"), "VRAM Mo": h.get("vram_mb", "?"), "Pilote": h.get("driver", "?"),
             "CPU": h.get("cpu", "?"), "RAM Go": h.get("ram_gb", "?"), "Écran Hz": self.refresh or "?",
             "VRR (G-Sync/FreeSync)": self.vrr or "non détecté",
-            "Plugin DLSS-G du jeu": f"plafond x{self._mfg_cap} ; patchable: {self._force_ok}",
-            "Multiplicateur choisi": self.mult.get(), "Multiplicateur imposé": self.unlock_drs.get(),
+            "Plugin DLSS-G du jeu": f"{self._mfg_ver or '?'} (plafond indicatif x{self._mfg_cap})",
+            "Multiplicateur automatique": "x%d, cap FPS %s, avertissement %s, calibré %s" % self._plan(),
             "Mémorisé pour ce jeu": self.cfg.get("mult_by_game", {}).get(g.get("appid", ""), "-"),
             "Anti-cheat détecté": self._anticheat or "aucun", "Autres mods FG": self._clash or "aucun",
         }
@@ -2016,7 +2152,7 @@ class App(ctk.CTk):
     def do_analyze(self):
         if not (self.game and self.exe.get()):
             return messagebox.showwarning("YogoMFG", self.L("need_game"))
-        exe, fps, goal = self.exe.get(), self._fps_int(), self.goal.get()   # snapshot (pas de .get() en thread)
+        exe, fps, goal = self.exe.get(), self.refresh or 60, self.goal.get()   # snapshot (pas de .get() en thread)
         self.an_box.delete("1.0", "end"); self.an_box.insert("end", self.L("loading") + "\n")
         def done(res, e):
             if not self.an_box.winfo_exists():   # modale fermée avant la fin -> ne rien toucher
@@ -2046,10 +2182,8 @@ class App(ctk.CTk):
     def _apply_reco(self):
         if self._delta.get("dlss_quality"):
             self.quality.set(self._delta["dlss_quality"])
-        messagebox.showinfo("YogoMFG", "Reco appliquée (DLSS " +
-                            inimaker.QUALITY_FR.get(self.quality.get(), "") +
-                            "). Retourne à Appliquer pour réécrire l'INI.")
-        self._applied = False
+        messagebox.showinfo("YogoMFG", "Reco : DLSS " + inimaker.QUALITY_FR.get(self.quality.get(), "") +
+                            " (à régler dans le menu graphique du jeu).")
 
     def _log(self, s):
         self.log.insert("end", s + "\n"); self.log.see("end")
