@@ -1,5 +1,18 @@
 # Changelog — YogoMFG
 
+## 0.7.2 beta
+
+- Retirer de tous les jeux et Optimiser tous les jeux libèrent toujours l'interface à la fin, même après une erreur :
+  l'écran de chargement ne reste plus bloqué et la langue redevient cliquable.
+- Retirer de tous les jeux : un jeu dont les fichiers sont restaurés perd son bandeau YOGOMFG même si l'annulation du
+  profil NVIDIA échoue ; cet échec est affiché séparément dans la console.
+- Le filtre des jeux ignore 3DMark et ses exécutables de benchmark.
+
+## 0.7.1 beta
+
+- Bouton Ré-optimiser reste cliquable pour modifier une optimisation déjà appliquée.
+- Le multiplicateur choisi en mode Manuel n'est plus réduit par le plafond mesuré automatiquement.
+
 ## 0.7.0 beta
 
 - Le plafond prouvé d'un jeu (ex. x4 pour Resident Evil Requiem, plugin DLSS-G 2.8.0) est lié à la version du plugin :

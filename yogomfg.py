@@ -29,7 +29,7 @@ MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.7.1 beta"
+VERSION = "0.7.2 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -1022,21 +1022,28 @@ class App(ctk.CTk):
         out_cfg = []
 
         def done(out, e):
-            for appid, exe, mult, cap in out_cfg:        # config modifiée dans le thread UI seulement
-                self.cfg.setdefault("applied", {})[appid] = "version.dll"
-                self.cfg.setdefault("installed_exe", {})[appid] = exe
-                self.cfg.setdefault("mult_by_game", {})[appid] = mult
-                self.cfg.setdefault("cap_written", {})[appid] = cap
-                self._better.discard(appid)
-            config.save(self.cfg)
-            for name, ok, msg in out or []:
-                self._log(("  ✓ " if ok else "  ⏭ " if ok is None else "  ✗ ") + name + (" — " + msg if msg else ""))
-            if e:
-                self._log("✗ " + str(e))
-            self.prog.set(1.0)
-            self._log(chr(10) + "💡 " + self.L("after_opt_hint"))
-            self._thumbs.clear()
-            self._set_busy(False)
+            try:
+                for appid, exe, mult, cap in out_cfg:        # config modifiée dans le thread UI seulement
+                    self.cfg.setdefault("applied", {})[appid] = "version.dll"
+                    self.cfg.setdefault("installed_exe", {})[appid] = exe
+                    self.cfg.setdefault("mult_by_game", {})[appid] = mult
+                    self.cfg.setdefault("cap_written", {})[appid] = cap
+                    self._better.discard(appid)
+                config.save(self.cfg)
+                for name, ok, msg in out or []:
+                    self._log(("  ✓ " if ok else "  ⏭ " if ok is None else "  ✗ ") + name + (" — " + msg if msg else ""))
+                if e:
+                    self._log("✗ " + str(e))
+                self.prog.set(1.0)
+                self._log(chr(10) + "💡 " + self.L("after_opt_hint"))
+                self._thumbs.clear()
+            except Exception as ex:
+                try:
+                    self._log("✗ " + str(ex))
+                except Exception:
+                    pass
+            finally:
+                self._set_busy(False)
         self._async(worker, done)
 
     def _remove_all(self):
@@ -1053,11 +1060,15 @@ class App(ctk.CTk):
                     ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
                     return [("NVIDIA (profil global)", ok, [msg])], []
                 def clean_done(res, e):
-                    out, _ = res or ([], [])
-                    for name, ok, files in out:
-                        self._log(("✓ " if ok else "✗ ") + name)
-                        for f in files: self._log("    " + f)
-                    self._set_busy(False)
+                    try:
+                        out, _ = res or ([], [])
+                        for name, ok, files in out:
+                            self._log(("✓ " if ok else "✗ ") + name)
+                            for f in files: self._log("    " + f)
+                        if e:
+                            self._log("✗ " + str(e))
+                    finally:
+                        self._set_busy(False)
                 self._async(clean_global, clean_done)
             return
         if not messagebox.askyesno("YogoMFG", self.L("rm_all_ask") % len(games), parent=self):
@@ -1069,21 +1080,24 @@ class App(ctk.CTk):
 
         def worker():
             out, ok_ids = [], []
+            remaining = set(games)
             for appid, exe in games.items():
                 name = os.path.basename(os.path.dirname(exe))
                 try:
                     files = installer.uninstall(exe, applied.get(appid) or "version.dll") if os.path.isfile(exe) else []
-                    base = os.path.basename(exe)
-                    nvcp.revert(npi, DATA, base)
-                    nvcp.restore_mfg(npi, DATA, base)
                     out.append((name, True, files))
                     ok_ids.append(appid)
-                except Exception as e:                   # fichier verrouillé (jeu lancé) : ce jeu reste installé
+                    remaining.discard(appid)
+                except Exception as e:
                     out.append((name, False, [str(e)]))
-            
-            # On tente de remettre le global si on a réussi à enlever tous les jeux demandÉS
-            # ou si plus aucun jeu n'est marqué comme installé dans la config globale
-            remaining = [a for a in self.cfg.get("installed_exe", {}) if a not in ok_ids]
+                    continue
+                base = os.path.basename(exe)
+                for restore in (nvcp.revert, nvcp.restore_mfg):
+                    try:
+                        ok, msg = restore(npi, DATA, base)
+                        out.append((f"{name} — NVIDIA", ok, [msg]))
+                    except Exception as e:
+                        out.append((f"{name} — NVIDIA", False, [str(e)]))
             if not remaining:
                 try:
                     ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
@@ -1093,24 +1107,31 @@ class App(ctk.CTk):
             return out, ok_ids
 
         def done(res, e):
-            out, ok_ids = res or ([], [])
-            for name, ok, files in out:
-                self._log(("✓ " if ok else "✗ ") + name)
-                for f in files:
-                    self._log("    " + f)
-            
-            for a in ok_ids:
-                for k in ("applied", "installed_exe", "cap_written", "manual_mult"):
-                    self.cfg.get(k, {}).pop(a, None)
-                self._better.discard(a)
-            
-            config.save(self.cfg)
-            if e:
-                self._log("✗ " + str(e))
-            
-            self.prog.set(1.0)
-            self._thumbs.clear() # Force le rechargement de toutes les jaquettes
-            self._set_busy(False)
+            try:
+                out, ok_ids = res or ([], [])
+                for name, ok, files in out:
+                    self._log(("✓ " if ok else "✗ ") + name)
+                    for f in files:
+                        self._log("    " + f)
+
+                for a in ok_ids:
+                    for k in ("applied", "installed_exe", "cap_written", "manual_mult"):
+                        self.cfg.get(k, {}).pop(a, None)
+                    self._better.discard(a)
+
+                config.save(self.cfg)
+                if e:
+                    self._log("✗ " + str(e))
+
+                self.prog.set(1.0)
+                self._thumbs.clear()
+            except Exception as ex:
+                try:
+                    self._log("✗ " + str(ex))
+                except Exception:
+                    pass
+            finally:
+                self._set_busy(False)
         self._async(worker, done)
 
     def _launch(self):
@@ -2076,16 +2097,22 @@ class App(ctk.CTk):
                         nvcp.user_cap(npi, DATA, os.path.basename(e), written.get(a))) for a, e in games.items()}
 
         def decided(found, err):
-            # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
-            for appid, (exe, st, stats, ucap) in (found or {}).items():
-                if stats and stats["mult"] > 1:
-                    self._learn_cap({"appid": appid}, int(round(stats["mult"])))
-                self._stats[exe], self._caps[exe] = stats, ucap
-                p = self._plan(appid, stats, exe)
-                if st["installed"] and p[3] and p[0] != st["mult"]:
-                    self._better.add(appid)
-                    self._log("✨ " + os.path.basename(exe) + " — " + self.L("better_log") % (st["mult"], p[0]))
-            self._set_busy(False)
+            try:
+                # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
+                for appid, (exe, st, stats, ucap) in (found or {}).items():
+                    if stats and stats["mult"] > 1:
+                        self._learn_cap({"appid": appid}, int(round(stats["mult"])))
+                    self._stats[exe], self._caps[exe] = stats, ucap
+                    p = self._plan(appid, stats, exe)
+                    if st["installed"] and p[3] and p[0] != st["mult"]:
+                        self._better.add(appid)
+                        self._log("✨ " + os.path.basename(exe) + " — " + self.L("better_log") % (st["mult"], p[0]))
+                if err:
+                    self._log("✗ " + str(err))
+            except Exception as ex:
+                self._log("✗ " + str(ex))
+            finally:
+                self._set_busy(False)
         self._async(read, decided)
 
     def _ask_admin(self):
