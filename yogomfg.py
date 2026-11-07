@@ -29,7 +29,7 @@ MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.7.4 beta"
+VERSION = "0.7.5 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -1485,8 +1485,15 @@ class App(ctk.CTk):
         txt = self.L("result_cal" if cal else "result") % (mult, round(t / mult), t)
         return txt + ("\n⚠ " + self.L("warn_soft") if warn else "")
 
-    def _learn_cap(self, g, got):
-        """Retient ce que le jeu a réellement donné. Demandé 6, obtenu 4 -> plafond prouvé x4 ; sinon aucun plafond connu."""
+    def _learn_cap(self, g, got, stats=None):
+        """Retient ce que le jeu a réellement donné. Demandé 6, obtenu 4 -> plafond prouvé x4 ; sinon aucun plafond connu.
+
+        Rien n'est retenu si la session est restée collée à NOTRE plafond de FPS : la Frame Generation est dynamique,
+        elle réduit le nombre d'images générées pour tenir le plafond. Le multiplicateur obtenu mesure alors le cap,
+        pas la limite du jeu (CONTROL Resonant, cap 120 : affiché 120,0 figé, réel de 24 à 60 selon n).
+        """
+        if self._cap_bound(g["appid"], stats):
+            return
         asked = self.cfg.get("mult_by_game", {}).get(g["appid"])
         caps = self.cfg.setdefault("proven_cap", {})
         old = caps.get(g["appid"])
@@ -1498,6 +1505,12 @@ class App(ctk.CTk):
             caps.pop(g["appid"], None)
         if caps.get(g["appid"]) != old:
             config.save(self.cfg)
+
+    def _cap_bound(self, appid, stats):
+        """La session a-t-elle été tenue par le plafond de FPS que NOUS avons écrit ? (à 5 % près)"""
+        cap = (self.cfg.get("cap_written") or {}).get(appid)
+        plateau = (stats or {}).get("disp_plateau") if isinstance(stats, dict) else None
+        return bool(cap and plateau and abs(plateau - cap) <= 0.05 * cap)
 
     def _apply_scan(self, g, info, silent):
         """Affiche le résultat du scan (support FG, plugin, conflits, anti-cheat) pour le jeu courant."""
@@ -2010,7 +2023,7 @@ class App(ctk.CTk):
         self._caps[exe_full] = ucap
         appid = g["appid"]
         if stats and stats["mult"] > 1:
-            self._learn_cap(g, int(round(stats["mult"])))      # demandé x4, obtenu x3 -> plafond prouvé x3
+            self._learn_cap(g, int(round(stats["mult"])), stats)   # demandé x4, obtenu x3 -> plafond prouvé x3
         p = self._plan(appid, stats)
         mult, cap, warn, cal = p
         self._better.discard(appid)                                  # la proposition est appliquée
@@ -2119,7 +2132,7 @@ class App(ctk.CTk):
                 # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
                 for appid, (exe, st, stats, ucap) in (found or {}).items():
                     if stats and stats["mult"] > 1:
-                        self._learn_cap({"appid": appid}, int(round(stats["mult"])))
+                        self._learn_cap({"appid": appid}, int(round(stats["mult"])), stats)
                     self._stats[exe], self._caps[exe] = stats, ucap
                     p = self._plan(appid, stats, exe)
                     if st["installed"] and p[3] and p[0] != st["mult"]:

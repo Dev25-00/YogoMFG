@@ -65,6 +65,12 @@ def plan(refresh_hz, vrr, stats=None, ceiling=MOD_MAX, weak=False, user_cap=None
         m = round(got) if got > 1 and abs(lim * got - t) <= 0.03 * t else round(t / lim)
     else:
         low = stats["low"]
+        # Session tenue par un plafond d'affichage : « low » n'est alors que ce plafond divisé par le multiplicateur,
+        # pas la capacité du moteur. S'y fier bouclait (cap 120 + x5 -> 24 réelles -> « low » 24 -> x5 à nouveau, à
+        # vie). On prend la capacité démontrée, qui ne dépasse « low » que si plusieurs valeurs de n ont été tenues.
+        dp, best = stats.get("disp_plateau"), stats.get("best")
+        if dp and best and best > low:
+            low = best
         weak = weak or low < MIN_BASE
         m = next((k for k in range(MIN_MULT, top + 1) if t / k <= low), top)
     m = max(MIN_MULT, min(top, int(m)))
@@ -114,8 +120,9 @@ def default_cfg(fps_target=120):
 
 
 def _selftest():
-    def s(low, plateau=None, mult=3, seconds=180):
-        return {"low": low, "plateau": plateau, "mult": mult, "seconds": seconds}
+    def s(low, plateau=None, mult=3, seconds=180, disp_plateau=None, best=None):
+        return {"low": low, "plateau": plateau, "mult": mult, "seconds": seconds,
+                "disp_plateau": disp_plateau, "best": best}
     # première fois (aucune mesure) : arrondi(T / 55) dans [3, plafond]
     assert plan(180, True) == (3, 177, False, False)                   # 59 réelles
     assert plan(240, True)[0] == 4 and plan(360, True)[0] == 6
@@ -139,6 +146,14 @@ def _selftest():
     assert plan(180, True, s(40))[2] is False                          # base 40 < 45 : carte faible, 30 acceptées
     assert plan(180, True, s(46), weak=True)[2] is False               # RTX 2060 : 30 acceptées
     assert plan(180, True, ceiling=2)[0] == 3                          # plafond prouvé x2 : on reste à x3
+    # plafond d'AFFICHAGE : « low » n'est que le cap / multiplicateur. Cas réel CONTROL Resonant, cap 120, x5
+    # obtenu, 24 réelles mesurées, mais 58,8 démontrées à n=1. Sans le correctif, le plan bouclait sur x5 à vie.
+    cb = s(23.98, mult=5, disp_plateau=120.0, best=58.79)
+    assert plan(120, True, cb, user_cap=120)[0] == 3, plan(120, True, cb, user_cap=120)
+    assert plan(144, True, cb)[:2] == (3, 141), plan(144, True, cb)     # 47 réelles, et non x6 / 24
+    assert plan(120, True, s(23.98, mult=5, disp_plateau=120.0))[0] == 5   # sans capacité démontrée : comportement inchangé
+    assert plan(120, True, s(23.98, mult=5, best=58.79))[0] == 5           # sans plateau d'affichage : inchangé
+    assert plan(120, True, s(58.79, mult=2, disp_plateau=120.0, best=58.79))[0] == 3   # best == low : rien ne change
     assert plan(0, True) == (3, None, False, False) and plan(500, False)[0] == 6
     assert weak_gpu("NVIDIA GeForce RTX 2060 SUPER") and not weak_gpu("NVIDIA GeForce RTX 3070")
     for m in (2, 3, 4, 5, 6):

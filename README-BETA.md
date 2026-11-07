@@ -1,4 +1,4 @@
-# YogoMFG 0.7.4 beta — Frame Generation jusqu'à x6 sur RTX 20 / 30
+# YogoMFG 0.7.5 beta — Frame Generation jusqu'à x6 sur RTX 20 / 30
 
 > ⛔ **Jeux solo / hors ligne uniquement.** N'utilise jamais YogoMFG sur un jeu en ligne ou avec anti-cheat :
 > risque de bannissement définitif. Détails (FR, EN, ES, DE, PT, IT, 中文) dans [ANTICHEAT.md](ANTICHEAT.md).

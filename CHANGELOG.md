@@ -1,5 +1,23 @@
 # Changelog — YogoMFG
 
+## 0.7.5 beta
+
+- Le multiplicateur recommandé ne se bloque plus sur la valeur imposée par un plafond de FPS. La Frame Generation est
+  dynamique : elle réduit le nombre d'images générées pour tenir le plafond. Les images réelles mesurées valaient donc
+  « plafond divisé par le multiplicateur », et s'y fier bouclait — un plafond de 120 avec x5 donne 24 images réelles,
+  d'où une base mesurée à 24, d'où x5 recommandé à nouveau, indéfiniment. Mesuré sur CONTROL Resonant : le débit
+  affiché restait collé à 120,0 images par seconde (119,8 au 10e centile, 120,1 au 90e) pendant que le rendu allait de
+  24 à 60 selon le nombre d'images générées.
+- Nouveau signal : la capacité démontrée du moteur. Pour chaque nombre d'images générées tenu au moins vingt secondes,
+  on retient la médiane des images réelles, et on garde la meilleure. Sur la même session, cent trente-sept secondes à
+  une seule image générée ont donné 58,8 images réelles, là où la base basse annonçait 24. Le plan se fonde sur cette
+  capacité dès qu'un plateau d'affichage est détecté. Garde-fou : cette valeur ne dépasse la base basse que si
+  plusieurs nombres d'images générées ont été tenus, donc un jeu réellement limité à 24 images réelles ne change pas
+  de comportement.
+- Aucun plafond prouvé n'est plus enregistré quand la session est restée sur le plafond de FPS que YogoMFG a lui-même
+  écrit, à cinq pour cent près. Sans cela, le x5 obtenu sous un plafond de 120 passait pour une limite du jeu et le x6
+  aurait été grisé à tort.
+
 ## 0.7.4 beta
 
 - La DLL proxy est maintenant choisie d'après la table d'imports du jeu, et non plus fixée à `version.dll`.

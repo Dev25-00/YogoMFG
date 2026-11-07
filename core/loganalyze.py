@@ -197,6 +197,16 @@ def _summary(rows):
     Ne garde que les secondes où la Frame Generation tournait (menus, pauses, cinématiques la coupent), puis :
     real = médiane, low = 10e centile (base que le GPU tient sans faiblir), plateau = FPS réels figés (p10..p90 dans 3 %)
     avec un GPU sous 95 % -> un limiteur (jeu, utilisateur ou notre cap) tient les FPS, pas la carte.
+
+    best = meilleure médiane d'images réelles parmi les groupes d'images générées tenus au moins 20 s : ce que le
+    moteur a démontré savoir faire quand la FG lui en demandait le moins (CONTROL Resonant : 58,8 réelles sur 137 s
+    à n=1, alors que « low » disait 24).
+
+    disp / disp_plateau = débit AFFICHÉ (réelles × (n+1)) et sa valeur figée. Un plafond de FPS agit sur l'affiché,
+    pas sur le rendu : la FG étant dynamique, elle fait varier n pour tenir le plafond, donc les images réelles
+    bougent alors que l'affiché ne bouge pas. Mesuré sur CONTROL Resonant avec un cap à 120 : affiché 120,0
+    (p10 119,8 / p90 120,1) pendant que le réel allait de 24 à 60 selon n. Sans ce signal, le multiplicateur obtenu
+    paraît plafonné par le jeu alors que c'est notre propre limiteur : on enregistrerait un proven_cap faux.
     """
     if any(r[3] for r in rows):
         rows = [r for r in rows if r[3]]
@@ -210,9 +220,23 @@ def _summary(rows):
     q = statistics.quantiles(fps, n=10) if len(fps) >= 2 else [med] * 9
     g = statistics.median(gpu) if gpu else None
     flat = len(fps) >= 20 and med > 0 and (q[8] - q[0]) <= 0.03 * med
+    # best = images réelles que le moteur a DÉMONTRÉES. Sous un plafond d'affichage, « low » mesure le plafond
+    # divisé par le multiplicateur, pas la machine : il faut regarder les secondes où la FG générait le MOINS.
+    # Chaque valeur de n donne une médiane ; on garde la meilleure, parmi les groupes tenus au moins 20 s.
+    by_n = {}
+    for r in rows:
+        if r[3]:
+            by_n.setdefault(r[3], []).append(r[0])
+    meds = [statistics.median(v) for v in by_n.values() if len(v) >= 20]
+    best = max(meds) if meds else None
+    disp = [r[0] * (r[3] + 1) for r in rows if r[3]]
+    dmed = statistics.median(disp) if disp else None
+    dq = statistics.quantiles(disp, n=10) if len(disp) >= 2 else None
+    dflat = bool(dq) and len(disp) >= 20 and dmed > 0 and (dq[8] - dq[0]) <= 0.03 * dmed
     return {"real": med, "low": q[0], "gpu": g, "fg": statistics.median(fg) if fg else None,
             "mult": (statistics.median(n) if n else 0) + 1, "seconds": len(fps),
             "plateau": med if flat and g is not None and g < 95 else None,
+            "disp": dmed, "disp_plateau": dmed if dflat else None, "best": best,
             "locked": len(fps) > 20 and statistics.pstdev(fps) < 0.3}
 
 
@@ -416,6 +440,20 @@ def _selftest():
     # limiteur : FPS réels figés à 60 avec un GPU à 70 % -> plateau 60
     cap = _summary([(60.0 + (i % 3) * 0.1, 70.0, 3.0, 2) for i in range(90)])
     assert cap["plateau"] and abs(cap["plateau"] - 60.1) < 0.2
+    assert cap["disp"] and abs(cap["disp"] - 180.3) < 0.5 and cap["disp_plateau"]
+
+    # notre plafond de FPS : l'AFFICHÉ est figé à 120 pendant que le RÉEL varie de 24 à 60 selon n.
+    # Cas réel mesuré sur CONTROL Resonant : sans disp_plateau, le x5 obtenu passerait pour un plafond du jeu.
+    dyn = ([(24.0, 48.0, 6.4, 4)] * 70        # 24 x 5 = 120
+           + [(30.0, 52.0, 6.4, 3)] * 15      # 30 x 4 = 120
+           + [(60.0, 58.0, 6.4, 1)] * 15)     # 60 x 2 = 120
+    d = _summary(dyn)
+    assert d["plateau"] is None, d["plateau"]              # le réel bouge : aucun plateau de ce côté
+    assert d["disp_plateau"] and abs(d["disp_plateau"] - 120.0) < 0.5, d["disp_plateau"]
+    assert d["mult"] == 5 and d["real"] == 24.0            # x5 « obtenu », mais c'est le cap qui l'impose
+    # sans plafond atteint, disp_plateau doit rester None
+    free = _summary([(40.0 + (i % 25), 99.0, 6.4, 4) for i in range(60)])
+    assert free["disp_plateau"] is None, free["disp_plateau"]
     print("loganalyze selftest OK")
 
 
