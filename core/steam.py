@@ -32,7 +32,7 @@ def _libraries(sp):
 def _render_exes(game_dir):
     """Exes candidats au moteur de rendu, tri par taille desc, bruit filtré."""
     noise = ("unins", "crashreport", "launcher", "setup", "redist", "vcredist",
-             "dxsetup", "touchup", "benchmark", "config", "eac", "battleye")
+             "dxsetup", "touchup", "benchmark", "config", "eac", "battleye", "3dmark")
     hits = []
     for dp, _, files in os.walk(game_dir):
         if dp.count(os.sep) - game_dir.count(os.sep) > 3:

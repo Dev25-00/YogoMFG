@@ -29,7 +29,7 @@ MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.7.0 beta"
+VERSION = "0.7.1 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -397,13 +397,13 @@ TR["fr"].update({                           # 0.7.0 : un clic pour optimiser, un
     "mode_auto": "Recommandé", "mode_manual": "Manuel", "opt_update": "↻ Mettre à jour l'optimisation (x%d)",
     "opt_all": "Optimiser tous les jeux", "rm_all": "Retirer de tous les jeux", "opt_all_go": "Optimiser tout",
     "opt_all_hint": "%d jeux compatibles. Recommandé : YogoMFG calcule le meilleur multiplicateur pour chaque jeu. Manuel : le même plafond pour tous, puis tu choisis dans le menu de chaque jeu.",
-    "opt_all_cap": "En Manuel, un jeu qui plafonne plus bas (ex. Resident Evil Requiem à x4) reste à son maximum. Les jeux lancés ou protégés par un anti-cheat sont sautés.",
+    "opt_all_cap": "En Manuel, le plafond prouvé d'un jeu (ex. Resident Evil Requiem à x4) est indicatif seulement : tu peux quand même choisir x5 ou x6, le jeu donnera ce qu'il peut. Les jeux lancés ou protégés par un anti-cheat sont sautés.",
     "busy_opt_all": "Optimisation de %d jeux en cours…", "busy_rm_all": "Restauration de %d jeux en cours…",
     "skip_ac": "sauté : anti-cheat (%s)", "skip_busy": "sauté : jeu lancé ou autre mod présent",
     "rm_all_ask": "Retirer YogoMFG de %d jeu(x) et remettre leurs fichiers et réglages NVIDIA d'origine ?", "cap_reset": "Jeu mis à jour (plugin DLSS-G %s → %s) : l'ancien plafond est oublié, x5 et x6 sont de nouveau proposés.", "mult_free": "Multiplicateur libre : choisis de x2 à x%d dans le menu du jeu (le pilote n'impose plus rien).", "opt_apply": "Appliquer x%d",
     "vram_note": "VRAM : la génération d'images prend environ +0,5 Go en 1440p (+0,35 Go en 1080p), autant en x3 qu'en x6. Ce qui change avec le multiplicateur : moins d'images réelles, donc un peu plus de latence et d'artefacts possibles. Le plafond, G-Sync et le profil NVIDIA restent réglés automatiquement.",
     "cap_kept": "Plafond FPS de ton profil NVIDIA respecté : %d images affichées au maximum.",
-    "opt_done": "✓ Déjà optimisé", "opt_better": "✨ Optimisation disponible (x%d)",
+    "opt_done": "↺ Ré-optimiser (x%d)", "opt_better": "✨ Optimisation disponible (x%d)",
     "better_log": "optimisation disponible : x%d → x%d d'après ta dernière partie.",
     "after_opt_hint": "Joue 5 minutes avec la génération d'images activée : au prochain lancement, YogoMFG lira tes mesures et te proposera une meilleure optimisation si elle existe.",
     "busy_opt": "Optimisation en cours…", "busy_rm": "Restauration du jeu d'origine…", "busy_cal": "Calibrage en cours…",
@@ -438,13 +438,13 @@ TR["en"].update({
     "mode_auto": "Recommended", "mode_manual": "Manual", "opt_update": "↻ Update the optimization (x%d)",
     "opt_all": "Optimize all games", "rm_all": "Remove from all games", "opt_all_go": "Optimize all",
     "opt_all_hint": "%d compatible games. Recommended: YogoMFG works out the best multiplier for each game. Manual: the same ceiling for all, then you pick in each game's menu.",
-    "opt_all_cap": "In Manual, a game with a lower ceiling (e.g. Resident Evil Requiem at x4) stays at its maximum. Running games and games with anti-cheat are skipped.",
+    "opt_all_cap": "In Manual, a game's proven ceiling (e.g. Resident Evil Requiem at x4) is informational only: you can still pick x5 or x6 — the game will deliver what it can. Running games and games with anti-cheat are skipped.",
     "busy_opt_all": "Optimizing %d games…", "busy_rm_all": "Restoring %d games…",
     "skip_ac": "skipped: anti-cheat (%s)", "skip_busy": "skipped: game running or another mod present",
     "rm_all_ask": "Remove YogoMFG from %d game(s) and restore their original files and NVIDIA settings?", "cap_reset": "Game updated (DLSS-G plugin %s → %s): the old ceiling is forgotten, x5 and x6 are offered again.", "mult_free": "Free multiplier: pick x2 to x%d in the game menu (the driver no longer forces anything).", "opt_apply": "Apply x%d",
     "vram_note": "VRAM: frame generation takes about +0.5 GB at 1440p (+0.35 GB at 1080p), the same at x3 and x6. What changes with the multiplier: fewer real frames, so a little more latency and possible artefacts. The fps cap, G-Sync and the NVIDIA profile stay automatic.",
     "cap_kept": "Your NVIDIA profile fps limit is kept: %d displayed frames at most.",
-    "opt_done": "✓ Already optimized", "opt_better": "✨ Optimization available (x%d)",
+    "opt_done": "↺ Re-optimize (x%d)", "opt_better": "✨ Optimization available (x%d)",
     "better_log": "optimization available: x%d → x%d from your last session.",
     "after_opt_hint": "Play 5 minutes with frame generation on: at the next start, YogoMFG reads your measurements and offers a better optimization if there is one.",
     "busy_opt": "Optimizing…", "busy_rm": "Restoring the original game…", "busy_cal": "Calibrating…",
@@ -1042,7 +1042,23 @@ class App(ctk.CTk):
     def _remove_all(self):
         """« Retirer de tous les jeux » : chaque jeu YogoMFG retrouve ses fichiers et son profil NVIDIA, puis le global."""
         games = {a: e for a, e in self.cfg.get("installed_exe", {}).items() if e}
-        if self._busy or not games:
+        if self._busy:
+            return
+        if not games:
+            # S'il ne reste plus rien dans installed_exe mais que l'utilisateur clique, on nettoie quand même le global
+            if messagebox.askyesno("YogoMFG", self.L("rm_all_ask") % 0, parent=self):
+                self._set_busy(True, self.L("busy_rm_all") % 0)
+                npi = self.npi.get()
+                def clean_global():
+                    ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
+                    return [("NVIDIA (profil global)", ok, [msg])], []
+                def clean_done(res, e):
+                    out, _ = res or ([], [])
+                    for name, ok, files in out:
+                        self._log(("✓ " if ok else "✗ ") + name)
+                        for f in files: self._log("    " + f)
+                    self._set_busy(False)
+                self._async(clean_global, clean_done)
             return
         if not messagebox.askyesno("YogoMFG", self.L("rm_all_ask") % len(games), parent=self):
             return
@@ -1064,9 +1080,16 @@ class App(ctk.CTk):
                     ok_ids.append(appid)
                 except Exception as e:                   # fichier verrouillé (jeu lancé) : ce jeu reste installé
                     out.append((name, False, [str(e)]))
-            if len(ok_ids) == len(games):                # plus aucun jeu optimisé : le global reprend ses valeurs d'origine
-                ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
-                out.append(("NVIDIA (profil global)", ok, [msg]))
+            
+            # On tente de remettre le global si on a réussi à enlever tous les jeux demandÉS
+            # ou si plus aucun jeu n'est marqué comme installé dans la config globale
+            remaining = [a for a in self.cfg.get("installed_exe", {}) if a not in ok_ids]
+            if not remaining:
+                try:
+                    ok, msg = nvpreset.revert_fg_global(npi, DATA)[:2]
+                    out.append(("NVIDIA (profil global)", ok, [msg]))
+                except Exception as e:
+                    out.append(("NVIDIA (profil global)", False, [str(e)]))
             return out, ok_ids
 
         def done(res, e):
@@ -1075,15 +1098,18 @@ class App(ctk.CTk):
                 self._log(("✓ " if ok else "✗ ") + name)
                 for f in files:
                     self._log("    " + f)
+            
             for a in ok_ids:
                 for k in ("applied", "installed_exe", "cap_written", "manual_mult"):
                     self.cfg.get(k, {}).pop(a, None)
                 self._better.discard(a)
+            
             config.save(self.cfg)
             if e:
                 self._log("✗ " + str(e))
+            
             self.prog.set(1.0)
-            self._thumbs.clear()
+            self._thumbs.clear() # Force le rechargement de toutes les jaquettes
             self._set_busy(False)
         self._async(worker, done)
 
@@ -1151,6 +1177,9 @@ class App(ctk.CTk):
         # only games that ship DLSS Frame Generation; a game YogoMFG already touched stays listed so it can be removed
         keep = set(self.cfg.get("installed_exe", {})) | set(self.cfg.get("applied", {}))
         out = [g for g in out if g.get("appid") in keep or fgdetect.fg_capable(g["dir"])]
+        # filtrage manuel des benchmarks/outils connus (non-jeux)
+        noise = ("3dmark", "v-ray", "cinebench", "superposition", "pcmark")
+        out = [g for g in out if not any(n in g["name"].lower() for n in noise)]
         out.sort(key=lambda g: g["name"].lower())
         return out
 
@@ -1349,10 +1378,10 @@ class App(ctk.CTk):
         done = bool(exe and on and cur and st["mult"] == p[0])   # installé, à jour, au bon multiplicateur : rien à refaire
         stale = bool(exe and on and not cur)                  # YogoMFG a été mis à jour depuis : réappliquer
         better = bool(exe and on and not done and not stale)  # une session mesurée propose un autre multiplicateur
-        self.btn_opt.configure(text=self.L("opt_done") if done else (self.L("opt_update") % p[0]) if stale else ((self.L("opt_apply") if self.cfg.get("manual_mult", {}).get((self.game or {}).get("appid"))
+        self.btn_opt.configure(text=(self.L("opt_done") % p[0]) if done else (self.L("opt_update") % p[0]) if stale else ((self.L("opt_apply") if self.cfg.get("manual_mult", {}).get((self.game or {}).get("appid"))
                                                        else self.L("opt_better")) % p[0] if better else self.L("optimize_game")),
-                               state="disabled" if (done or self._busy) else "normal",
-                               fg_color=SURF2 if done else ("#f0b63a" if better else GREEN), text_color_disabled=GREEN if done else DIM)
+                               state="disabled" if self._busy else "normal",
+                               fg_color=SURF2 if done else ("#f0b63a" if better else GREEN), text_color_disabled=DIM)
         if not exe:
             self.lbl_result.configure(text="")
         elif on and st["mult"] == p[0]:
@@ -1373,8 +1402,8 @@ class App(ctk.CTk):
         weak = inimaker.weak_gpu((self.hw or {}).get("name"))
         p = inimaker.plan(self.refresh, bool(self.vrr), stats, self._mult_max(appid), weak, self._caps.get(exe))
         man = self.cfg.get("manual_mult", {}).get(appid or (self.game or {}).get("appid"))
-        if man and p[1]:                                  # Manuel : le choix du joueur, borné au plafond prouvé du jeu
-            m = max(inimaker.MIN_MULT, min(self._mult_max(appid), int(man)))
+        if man and p[1]:                                  # Manuel : le choix du joueur, sans bride proven_cap
+            m = max(inimaker.MIN_MULT, min(6, int(man)))
             p = (m, p[1], p[1] / m < (inimaker.WEAK_BASE if weak else inimaker.MIN_BASE), p[3])
         return p
 
@@ -1385,10 +1414,10 @@ class App(ctk.CTk):
         appid, top = self.game["appid"], self._mult_max()
         man = self.cfg.get("manual_mult", {}).get(appid)
         self.seg_mode.set(self.L("mode_manual") if man else self.L("mode_auto"))
-        vals = [f"x{k}" for k in range(inimaker.MIN_MULT, top + 1)]
+        vals = [f"x{k}" for k in range(inimaker.MIN_MULT, 7)]   # x3..x6 toujours disponibles en Manuel
         self.seg_mult.configure(values=vals)
         if man:
-            self.seg_mult.set(f"x{max(inimaker.MIN_MULT, min(top, int(man)))}")
+            self.seg_mult.set(f"x{max(inimaker.MIN_MULT, min(6, int(man)))}")
             self.seg_mult.pack(anchor="w", fill="x", pady=(0, 4), after=self.seg_mode)
             self.lbl_vram.configure(text=self.L("vram_note"))
             self.lbl_vram.pack(anchor="w", fill="x", pady=(0, 4), after=self.seg_mult)
