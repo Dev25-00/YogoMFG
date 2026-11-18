@@ -158,7 +158,7 @@ Please send us your results (*Software options → Export report*) to grow this 
 ## The mod and its safety
 
 The Frame Generation mod is **not open source**: it is third-party closed binaries (a proxy `version.dll` and the
-`dlssg_sm86\` folder) published on GitHub by **sdli1995**. YogoMFG 0.7.0 ships its release **0.4.1**, published by
+`dlssg_sm86\` folder) published on GitHub by **sdli1995**. YogoMFG 0.7.6 ships its release **0.4.2**, published by
 Coldwood1026. The archive also contains NVIDIA's own DLSS DLLs, unmodified.
 
 Checks done before shipping it:

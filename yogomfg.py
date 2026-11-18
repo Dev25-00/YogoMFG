@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from core import (i18n, report, probe, nvpreset, hardware, steam, fgdetect, inimaker, installer,
-                  nvcp, config, upscalers, optadvice, loganalyze, display)
+                  nvcp, config, upscalers, optadvice, loganalyze, display, updatecheck, modversion)
 
 FROZEN = getattr(sys, "frozen", False)
 RES = getattr(sys, "_MEIPASS", HERE)
@@ -29,7 +29,7 @@ MOD_ROOT = os.path.join(RES, "mod")
 NPI_BUNDLED = os.path.join(RES, "tools", "npi", "nvidiaProfileInspector.exe")
 
 KOFI_URL = "https://ko-fi.com/lahlouyoussef"
-VERSION = "0.7.5 beta"
+VERSION = "0.7.6 beta"
 
 # palette : fond noir/gris, vert flashy pour textes/boutons uniquement
 BG, SURF, SURF2, EDGE = "#0b0b0d", "#15151a", "#1f1f27", "#2c2c38"
@@ -405,6 +405,10 @@ TR["fr"].update({                           # 0.7.0 : un clic pour optimiser, un
     "cap_kept": "Plafond FPS de ton profil NVIDIA respecté : %d images affichées au maximum.",
     "opt_done": "↺ Ré-optimiser (x%d)", "opt_better": "✨ Optimisation disponible (x%d)",
     "better_log": "optimisation disponible : x%d → x%d d'après ta dernière partie.",
+    "mod_new_log": "le mod de sdli1995 %s est publié (YogoMFG embarque le %s) : une mise à jour de YogoMFG le fournira.",
+    "upd_log": "nouvelle version de YogoMFG disponible : %s — %s",
+    "upd_ask": "YogoMFG %s est disponible sur GitHub.\nOuvrir la page de téléchargement ?\n(Tes jeux déjà optimisés pourront ensuite être mis à jour en un clic.)",
+    "mod_old_log": "mod %s dans ce jeu, YogoMFG embarque le %s : sélectionne-le et clique « Mettre à jour l'optimisation ».",
     "after_opt_hint": "Joue 5 minutes avec la génération d'images activée : au prochain lancement, YogoMFG lira tes mesures et te proposera une meilleure optimisation si elle existe.",
     "busy_opt": "Optimisation en cours…", "busy_rm": "Restauration du jeu d'origine…", "busy_cal": "Calibrage en cours…",
     "busy_hint": "Ne ferme pas YogoMFG : ça prend quelques secondes.",
@@ -446,6 +450,10 @@ TR["en"].update({
     "cap_kept": "Your NVIDIA profile fps limit is kept: %d displayed frames at most.",
     "opt_done": "↺ Re-optimize (x%d)", "opt_better": "✨ Optimization available (x%d)",
     "better_log": "optimization available: x%d → x%d from your last session.",
+    "mod_new_log": "sdli1995's mod %s is out (YogoMFG ships %s): a YogoMFG update will provide it.",
+    "upd_log": "a new YogoMFG version is available: %s — %s",
+    "upd_ask": "YogoMFG %s is available on GitHub.\nOpen the download page?\n(Your already optimized games can then be updated in one click.)",
+    "mod_old_log": "mod %s in this game, YogoMFG ships %s: select it and click \"Update the optimization\".",
     "after_opt_hint": "Play 5 minutes with frame generation on: at the next start, YogoMFG reads your measurements and offers a better optimization if there is one.",
     "busy_opt": "Optimizing…", "busy_rm": "Restoring the original game…", "busy_cal": "Calibrating…",
     "busy_hint": "Do not close YogoMFG: it takes a few seconds.",
@@ -777,6 +785,9 @@ class App(ctk.CTk):
         self._fill_pc_strip()
         if not self.hw:
             self._async(self._load_hw, lambda r, e: (self._fill_pc_strip(), self._refresh_status(), self._auto_calibrate()))
+        if not getattr(self, "_upd_checked", False):          # une seule recherche par lancement, hors thread UI
+            self._upd_checked = True
+            self._async(lambda: (updatecheck.latest(), updatecheck.latest_mod()), self._on_update)
         # colonne jeux (gauche) + panneau du jeu (droite)
         mid = ctk.CTkFrame(self.body, fg_color="transparent"); mid.grid(row=1, column=0, sticky="nsew", padx=12, pady=4)
         self._mid = mid                                            # couvert par l'écran de chargement (_set_busy)
@@ -1396,7 +1407,7 @@ class App(ctk.CTk):
         st = installer.status(exe, self.cfg.get("applied", {}).get((self.game or {}).get("appid"))) if exe else None
         on = bool(st and st["installed"])
         if on:
-            bits = ([f"x{st['mult']}"] if st["mult"] else []) + ([st["proxy"]] if st["proxy"] else []) \
+            bits = ([f"x{st['mult']}"] if st["mult"] else []) + ([st["proxy"]] if st["proxy"] else [])                 + (["mod " + modversion.installed(os.path.dirname(exe), MOD_ROOT)] if modversion.installed(os.path.dirname(exe), MOD_ROOT) else []) \
                 + ([self.L("inst_bak") % len(st["backups"])] if st["backups"] else [])
             self._fade_text(self.lbl_inst, self.L("inst_yes") % " · ".join(bits), GREEN)
         else:
@@ -2120,8 +2131,13 @@ class App(ctk.CTk):
 
         def read():
             caps = nvcp.user_caps(npi, DATA, {os.path.basename(e): written.get(a) for a, e in games.items()})
-            return {a: (e, installer.status(e), loganalyze.session_stats(e), caps.get(os.path.basename(e)))
-                    for a, e in games.items()}
+            out = {}
+            for a, e in games.items():
+                st = installer.status(e)
+                old = st["installed"] and not installer.mod_current(MOD_ROOT, e, st["proxy"] or installer.pick_proxy(e))
+                out[a] = (e, st, loganalyze.session_stats(e), caps.get(os.path.basename(e)),
+                          (modversion.installed(os.path.dirname(e), MOD_ROOT) or "?") if old else None)
+            return out
 
         def decided(found, err):
             self._calib = False
@@ -2130,10 +2146,14 @@ class App(ctk.CTk):
                 return
             try:
                 # nothing is written here: a better multiplier is only PROPOSED (button + cover), one click applies it
-                for appid, (exe, st, stats, ucap) in (found or {}).items():
+                for appid, (exe, st, stats, ucap, old_mod) in (found or {}).items():
                     if stats and stats["mult"] > 1:
                         self._learn_cap({"appid": appid}, int(round(stats["mult"])), stats)
                     self._stats[exe], self._caps[exe] = stats, ucap
+                    if old_mod:             # YogoMFG embarque un mod plus récent que celui posé dans ce jeu
+                        self._better.add(appid)
+                        changed.add(appid)
+                        self._log("↻ " + os.path.basename(exe) + " — " + self.L("mod_old_log") % (old_mod, modversion.PAYLOAD))
                     p = self._plan(appid, stats, exe)
                     if st["installed"] and p[3] and p[0] != st["mult"]:
                         self._better.add(appid)
@@ -2150,6 +2170,21 @@ class App(ctk.CTk):
                 self._refresh_games()
                 self._refresh_status()
         self._async(read, decided)
+
+    def _on_update(self, res, err):
+        """Nouvelle version de YogoMFG sur GitHub : une ligne dans la console, et une seule question par version."""
+        app, mod = res or (None, None)
+        if mod and updatecheck.newer(modversion.PAYLOAD, mod[0]):
+            self._log("↑ " + self.L("mod_new_log") % (mod[0], modversion.PAYLOAD))
+        if not app or not updatecheck.newer(VERSION, app[0]):
+            return
+        tag, url = app
+        self._log("↑ " + self.L("upd_log") % (tag, url))
+        if self.cfg.get("update_seen") != tag:
+            self.cfg["update_seen"] = tag
+            config.save(self.cfg)
+            if messagebox.askyesno("YogoMFG", self.L("upd_ask") % tag, parent=self):
+                webbrowser.open(url)
 
     def _ask_admin(self):
         if messagebox.askyesno("YogoMFG", "Le réglage NVIDIA exige l'admin. Relancer en admin ?"):

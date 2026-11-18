@@ -294,8 +294,30 @@ def up_to_date(mod_root, exe_path, ini_text, proxy="version.dll"):
     dst = os.path.dirname(exe_path) if exe_path else ""
     if not dst or _read(os.path.join(dst, INI)).strip() != ini_text.strip():
         return False
-    mine, theirs = os.path.join(mod_root, "version.dll"), os.path.join(dst, proxy)
+    mine, theirs = _src(mod_root, proxy), os.path.join(dst, proxy)    # le proxy réellement posé, pas toujours version.dll
     return os.path.isfile(theirs) and os.path.isfile(mine) and _sha(theirs) == _sha(mine)
+
+
+def mod_current(mod_root, exe_path, proxy="version.dll"):
+    """True si le proxy et TOUS les fichiers de dlssg_sm86\\ du jeu sont identiques à ceux de ce YogoMFG (lecture seule).
+
+    Sert à proposer la mise à jour d'un jeu optimisé avec un ancien mod ; l'INI (réglages) n'est pas comparé.
+    La taille départage sans lire le fichier ; le SHA-256 n'est calculé que si les tailles sont égales.
+    """
+    dst = os.path.dirname(exe_path) if exe_path else ""
+    if not dst:
+        return False
+    pairs = [(_src(mod_root, proxy), os.path.join(dst, proxy))]
+    for root, _, files in os.walk(os.path.join(mod_root, FOLDER)):
+        for fn in files:
+            full = os.path.join(root, fn)
+            pairs.append((full, os.path.join(dst, os.path.relpath(full, mod_root))))
+    for mine, theirs in pairs:
+        if not (os.path.isfile(mine) and os.path.isfile(theirs)) or os.path.getsize(mine) != os.path.getsize(theirs):
+            return False
+        if _sha(mine) != _sha(theirs):
+            return False
+    return True
 
 
 def check_apply(mod_root, exe_path, proxy="version.dll", applied_proxy=None):
@@ -370,6 +392,15 @@ def _selftest():
         assert open(os.path.join(game, "version.dll"), "rb").read() == b"MOD-PROXY"
         assert status(exe)["installed"] and status(exe)["mult"] == 3 and status(exe)["backups"] == ["version.dll"]
         install(mod, exe, _MARK + "\n[FrameGeneration]\nMaxGeneratedFrames=1\n")     # ré-optimiser : l'original reste sauvé
+        assert mod_current(mod, exe), "juste installé : à jour"
+        be = os.path.join(game, FOLDER, "backend", "sm86_backend.dll")
+        open(be, "wb").write(b"OLD")                                                 # ancien mod (taille différente)
+        assert not mod_current(mod, exe), "backend ancien : mise à jour proposée"
+        open(be, "wb").write(b"XX")                                                  # même taille, contenu différent
+        assert not mod_current(mod, exe), "même taille, SHA différent : mise à jour proposée"
+        install(mod, exe, _MARK + "\n[FrameGeneration]\nMaxGeneratedFrames=1\n")     # la mise à jour = ré-installer
+        assert mod_current(mod, exe) and open(be, "rb").read() == b"BE"
+        assert status(exe)["backups"] == ["version.dll"], "l'original reste sauvé après mise à jour"
         os.makedirs(os.path.join(game, FOLDER, "logs"), exist_ok=True)               # le mod écrit ses logs en jeu
         open(os.path.join(game, FOLDER, "logs", "dlssg_sm86.log"), "w").write("x")
         uninstall(exe)

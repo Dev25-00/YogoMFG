@@ -1,4 +1,4 @@
-"""Génère dlssg_sm86.ini (mod 0.4.1) et décide le multiplicateur automatiquement.
+"""Génère dlssg_sm86.ini (mod 0.4.1 et 0.4.2) et décide le multiplicateur automatiquement.
 
 Format du mod « dlssg_for_sm86 / SM75 » de sdli1995 (https://github.com/sdli1995/dlssg_for_sm86).
 Clés et valeurs vérifiées dans docs/INSTALL.en.md de la release 0.4.1 ; une clé absente prend le défaut validé du mod.

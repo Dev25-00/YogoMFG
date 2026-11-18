@@ -1,5 +1,27 @@
 # Changelog — YogoMFG
 
+## 0.7.6 beta
+
+- Mod embarqué : **0.4.2** (release de sdli1995 publiée par Coldwood1026 le 2026-11-14) à la place de la 0.4.1. Remplacement
+  direct : `version.dll`, les cinq proxys de `alternatives\`, `dlssg_sm86.ini` et les DLL de `dlssg_sm86\` (backend,
+  noyaux FG, super-résolution, XeSS-FG). Le runtime NVIDIA `nvngx_dlssg.dll` (310.9.16) est inchangé. Le SHA-256 du zip
+  correspond à l'empreinte publiée par la release.
+- Les nouveautés de la 0.4.2 concernent le moteur XeSS-FG (RTX 50, vecteurs de mouvement avec jitter, 4K, `UseHudless`).
+  YogoMFG écrit `Engine=DLSS` : pas de gain attendu sur le chemin DLSS-G, seulement les binaires à jour.
+- **Mise à jour des jeux déjà optimisés.** Au démarrage, YogoMFG compare le proxy et tous les fichiers de `dlssg_sm86\`
+  de chaque jeu optimisé avec le mod embarqué (`installer.mod_current`). Un jeu en retard reçoit le badge « OPTI DISPO »
+  sur sa jaquette, une ligne dans la console, et son bouton devient « Mettre à jour l'optimisation » : un clic réinstalle
+  les fichiers (l'original déjà sauvegardé reste sauvegardé) et garde le multiplicateur.
+- **Version du mod reconnue** (`core/modversion.py`) : le mod n'écrit aucun numéro dans le jeu, donc la DLL proxy est
+  reconnue par son SHA-256 (0.4.0, 0.4.1 et la version embarquée). La fiche du jeu affiche « mod 0.4.1 », et la console
+  indique « mod 0.4.1 dans ce jeu, YogoMFG embarque le 0.4.2 ». Une DLL inconnue n'est jamais présentée comme une version.
+- **Recherche de nouvelle version** (`core/updatecheck.py`, une requête GitHub en lecture seule, rien d'envoyé) : une
+  nouvelle version de YogoMFG ouvre une question (une seule fois par version) menant à la page de la release ; une
+  nouvelle release du mod de sdli1995 plus récente que celle embarquée est signalée dans la console. Aucun
+  téléchargement ni installation automatique.
+- Correction : le test « à jour » comparait toujours à `version.dll`, même pour un jeu équipé d'un autre proxy (`winmm.dll`…).
+- Jamais lancé en jeu par l'assistant : à confirmer sur une session réelle (format des journaux, multiplicateur obtenu).
+
 ## 0.7.5 beta
 
 - Le multiplicateur recommandé ne se bloque plus sur la valeur imposée par un plafond de FPS. La Frame Generation est
